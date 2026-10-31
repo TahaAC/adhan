@@ -1,0 +1,67 @@
+{
+  "name": "Shia Azan — Prayer Times & Adhan",
+  "short_name": "Shia Azan",
+  "description": "Shia prayer times (Tehran/Jafari method) with live adhan, countdown, Hijri date, and Qibla direction. Installable on desktop and mobile.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#0b3d2e",
+  "background_color": "#0b3d2e",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["lifestyle", "religion", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today's Prayer Times",
+      "short_name": "Prayer Times",
+      "description": "View today's prayer schedule",
+      "url": "/?tab=today",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Qibla Direction",
+      "short_name": "Qibla",
+      "description": "Find the direction to the Kaaba",
+      "url": "/?tab=qibla",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Settings",
+      "short_name": "Settings",
+      "description": "Configure calculation method and reciter",
+      "url": "/?tab=settings",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

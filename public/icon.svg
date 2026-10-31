@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0b3d2e"/>
+      <stop offset="50%" style="stop-color:#1a6b4f"/>
+      <stop offset="100%" style="stop-color:#0b3d2e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" style="stop-color:#d4a017;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#d4a017;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#bg)" rx="96"/>
+
+  <!-- Geometric pattern overlay -->
+  <g opacity="0.08" fill="none" stroke="#d4a017" stroke-width="1.5">
+    <circle cx="256" cy="256" r="220"/>
+    <circle cx="256" cy="256" r="180"/>
+    <circle cx="256" cy="256" r="140"/>
+    <path d="M 256 36 L 476 256 L 256 476 L 36 256 Z"/>
+    <path d="M 256 76 L 436 256 L 256 436 L 76 256 Z"/>
+  </g>
+
+  <!-- Glow -->
+  <rect width="512" height="512" fill="url(#glow)" rx="96"/>
+
+  <!-- Crescent moon and star -->
+  <g transform="translate(256, 230)">
+    <!-- Crescent: large circle with offset cutout -->
+    <g>
+      <circle cx="0" cy="0" r="80" fill="#d4a017"/>
+      <circle cx="22" cy="-8" r="68" fill="#0b3d2e"/>
+    </g>
+    <!-- Star -->
+    <g transform="translate(60, -30)">
+      <path d="M 0,-24 L 5.6,-7.4 L 23,-7.4 L 9,2.8 L 14.4,19.4 L 0,9.2 L -14.4,19.4 L -9,2.8 L -23,-7.4 L -5.6,-7.4 Z" fill="#d4a017"/>
+    </g>
+  </g>
+
+  <!-- Arabic-style decorative line -->
+  <g transform="translate(256, 370)" opacity="0.7">
+    <line x1="-100" y1="0" x2="100" y2="0" stroke="#d4a017" stroke-width="2"/>
+    <circle cx="0" cy="0" r="4" fill="#d4a017"/>
+    <circle cx="-100" cy="0" r="2" fill="#d4a017"/>
+    <circle cx="100" cy="0" r="2" fill="#d4a017"/>
+  </g>
+
+  <!-- "AZAN" text -->
+  <text x="256" y="420" text-anchor="middle" font-family="Georgia, serif" font-size="42" font-weight="bold" fill="#d4a017" letter-spacing="8">AZAN</text>
+</svg>

@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "Shia Azan — Prayer Times",
+  "short_name": "Shia Azan",
+  "version": "1.0.0",
+  "description": "Shia prayer times (Tehran/Jafari method) with countdown, Hijri date, and Qibla direction. Click the icon for instant prayer times.",
+  "default_locale": "en",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Shia Azan — Prayer Times",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "geolocation",
+    "storage",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://praytimes.org/*",
+    "https://api.bigdatacloud.net/*",
+    "https://geocoding-api.open-meteo.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; media-src https://praytimes.org/*"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["praytime.js", "icons/*.png"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+A",
+        "mac": "Alt+Shift+A"
+      },
+      "description": "Open Shia Azan prayer times"
+    }
+  }
+}

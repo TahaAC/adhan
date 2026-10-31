@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shia Azan — Prayer Times</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            <circle cx="17" cy="6.5" r="1.2" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="title">Shia Azan</h1>
+          <p class="date" id="date">Loading…</p>
+        </div>
+      </div>
+      <button id="settings-btn" class="icon-btn" title="Settings">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Location bar -->
+    <div class="location-bar">
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      <span id="location" class="location-text">Detecting…</span>
+      <button id="refresh-loc" class="link-btn" title="Refresh location">↻</button>
+    </div>
+
+    <!-- Next prayer hero -->
+    <div class="hero" id="hero">
+      <p class="hero-label">Next Prayer</p>
+      <div class="hero-row">
+        <div>
+          <h2 class="hero-name" id="next-name">—</h2>
+          <p class="hero-arabic" id="next-arabic">—</p>
+        </div>
+        <div class="hero-countdown">
+          <p class="countdown-label">in</p>
+          <p class="countdown" id="countdown">--:--:--</p>
+        </div>
+      </div>
+      <div class="hero-time-row">
+        <span class="hero-time" id="next-time">--:--</span>
+        <span class="hero-progress-text" id="progress-text">—</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Prayer schedule -->
+    <div class="schedule" id="schedule">
+      <!-- Filled by popup.js -->
+    </div>
+
+    <!-- Qibla mini -->
+    <div class="qibla-mini" id="qibla-mini">
+      <div class="qibla-left">
+        <p class="qibla-label">Qibla</p>
+        <p class="qibla-value" id="qibla-bearing">—°</p>
+      </div>
+      <div class="qibla-right">
+        <p class="qibla-label">Distance</p>
+        <p class="qibla-value" id="qibla-distance">— km</p>
+      </div>
+    </div>
+
+    <!-- Settings panel (hidden by default) -->
+    <div class="settings-panel" id="settings-panel" style="display:none">
+      <h3 class="settings-title">Settings</h3>
+      <label class="setting-row">
+        <span>Calculation Method</span>
+        <select id="method-select"></select>
+      </label>
+      <label class="setting-row">
+        <span>Time Format</span>
+        <select id="format-select">
+          <option value="12h">12-hour</option>
+          <option value="24h">24-hour</option>
+        </select>
+      </label>
+      <label class="setting-row">
+        <span>Adhan Reciter</span>
+        <select id="reciter-select"></select>
+      </label>
+      <label class="setting-row checkbox">
+        <input type="checkbox" id="notif-checkbox" />
+        <span>Desktop notifications</span>
+      </label>
+      <div class="settings-actions">
+        <button id="open-full-app" class="btn-primary">Open Full App →</button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Tehran (Jafari) method · <a href="https://praytimes.org" target="_blank">praytimes.org</a></span>
+    </footer>
+  </div>
+
+  <script src="praytime.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

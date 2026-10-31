@@ -1,0 +1,5 @@
+[autorun]
+label=Shia Azan Installer
+icon=icons\shia-azan.ico
+open=install-shia-azan.bat
+action=Install Shia Azan
