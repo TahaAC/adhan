@@ -5,27 +5,53 @@ self-contained TV page (`app/assets/tv.html`) with D-pad
 navigation, live countdown, Qibla direction and automatic adhan
 playback. No server required — everything is bundled in the APK.
 
-## Install the prebuilt APK (easiest)
+## Install the prebuilt APK
 
-1. **Download** `ShiaAzan-AndroidTV.apk` (from this repo's
-   `download/` folder or the releases page) onto a USB stick or
-   download it directly on the TV.
+> **Important:** Android TV has **no built-in file manager** on most
+> models (Google TV, Sony, TCL, Hisense...). Plugging in a USB stick
+> alone does nothing — you need a file manager app to open the APK.
+> The easiest route is Wi-Fi transfer from your phone (Option A);
+> USB works too but needs one extra app (Option B).
 
-2. **Enable unknown sources** on the TV:
-   Settings ▸ Device Preferences ▸ Security & Restrictions ▸
-   *Unknown sources* (Android TV 10+) — or
-   Settings ▸ Personal ▸ Security & Restrictions (older).
+### Option A — Wi-Fi from your phone (easiest, no USB)
 
-3. **Install** with a file manager
-   ([File Commander](https://play.google.com/store/apps/details?id=com.mobisystems.file)
-   and most TVs' built-in "Files" app work):
-   - From USB: open the file manager, browse to the APK, open it.
-   - Over network: use *Send files to TV*
-     ([Play Store](https://play.google.com/store/apps/details?id=com.yazeed.stopwatchforandroidtv),
-     free) from your phone, then open it in the TV's file manager.
+1. On the **TV**: open the **Google Play Store** ▸ install
+   **[Send Files to TV](https://play.google.com/store/apps/details?id=com.yablio.sendfilestotv)**
+   (free, by Yablio).
+2. On your **phone**: install *Send Files to TV* from the Play
+   Store too (phone and TV must be on the same Wi-Fi).
+3. Get `ShiaAzan-AndroidTV.apk` onto the phone: on GitHub tap the
+   file ▸ *Download raw file* (or download it on a computer and
+   send it to your phone).
+4. Phone app ▸ **Send** ▸ pick the APK. TV app ▸ **Receive**.
+5. When the transfer finishes, **tap the received file** ▸ the TV
+   asks to allow installs from *Send Files to TV* ▸ open
+   **Settings** ▸ enable **Install unknown apps** for it ▸ go back
+   ▸ **Install**.
+6. If **Play Protect** says "*Unsafe app blocked*": tap
+   **More details** ▸ **Install anyway** (the warning appears only
+   because the app is not from the Play Store).
 
-4. **Allow the install** when prompted. The app appears on the
-   Android TV home screen with its banner.
+The app then appears on the Android TV home screen with its banner.
+
+### Option B — USB stick
+
+1. Format the stick as **FAT32 or exFAT** (many TVs cannot read
+   NTFS) and copy `ShiaAzan-AndroidTV.apk` onto it — the file only,
+   not the zip.
+2. Install a file manager on the TV from the Play Store:
+   [File Commander](https://play.google.com/store/apps/details?id=com.mobisystems.file),
+   FX, or X-plore all work.
+3. Plug in the USB ▸ open the file manager ▸ browse to the stick ▸
+   tap the APK.
+4. The TV asks to allow installs from the file manager ▸ **Settings**
+   ▸ enable **Install unknown apps** for it ▸ **Install**.
+   - Menu path if you need it manually:
+     Settings ▸ Device Preferences ▸ Security & Restrictions ▸
+     Unknown sources (older TVs) — or Settings ▸ Apps ▸
+     *the file manager* ▸ Install unknown apps (Android 8+).
+5. If **Play Protect** blocks the install: **More details** ▸
+   **Install anyway**.
 
 > Direct `adb install` also works:
 > `adb connect <TV-IP>:5555 && adb install ShiaAzan-AndroidTV.apk`
@@ -33,6 +59,22 @@ playback. No server required — everything is bundled in the APK.
 ### Also works on Android phones/tablets
 
 The same APK installs as a regular launcher app (landscape).
+
+## Troubleshooting: "I copied it to USB but can't install"
+
+| Symptom | Cause → Fix |
+| --- | --- |
+| Nothing happens when I plug in the USB | Normal — TVs have no built-in file browser. Install a file manager (Option B, step 2) or use Wi-Fi transfer (Option A). |
+| USB stick not visible at all | Stick is NTFS → reformat to FAT32/exFAT, recopy the APK. Also try the other USB port (some are input-only). |
+| "There was a problem parsing the package" | The file did not copy fully or is not the APK (don't copy the `.zip`), or the TV runs Android < 5.0. Recopy from GitHub and retry. |
+| "App not installed" | Transfer got corrupted — resend the file, or enable Install unknown apps *for the app you open it with*, then retry. |
+| "Blocked by Play Protect" / "Unsafe app blocked" | Tap *More details* ▸ *Install anyway*. The APK is debug-signed, which triggers the warning; it is safe to install. |
+| Install option greyed out | Install unknown apps is not enabled for the app you are opening the APK from (Settings ▸ Apps ▸ that app ▸ Install unknown apps). |
+| My TV has no Google Play Store | It is probably **not Android TV** (Samsung Tizen, LG webOS and others cannot install APKs at all). Use the TV's web browser to open `tv.html`, or screen-mirror / AirPlay from a phone instead. |
+
+First run: the app auto-detects your city via anonymous IP lookup —
+just press **OK** on the remote and it starts. No accounts, no
+permissions to grant.
 
 ## Features
 

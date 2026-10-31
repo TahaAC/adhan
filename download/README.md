@@ -170,15 +170,30 @@ TV speakers** at each prayer time. Works with the TV remote
 
 ### Install (2 ways)
 
-**Via USB / file manager**
-1. Download `ShiaAzan-AndroidTV.apk` and copy it to a USB stick
-   (or download it directly on the TV with its browser).
-2. On the TV: Settings ▸ Device Preferences ▸ Security & Restrictions ▸
-   enable **Unknown sources**.
-3. Open a file manager on the TV (e.g. *File Commander*, or the
-   built-in Files app), browse to the APK, and open it.
-4. Confirm the install. The app appears on the Android TV home screen
-   with its banner.
+> Most Android TVs / Google TVs have **no built-in file manager** —
+> a USB stick alone will not show anything. Pick either route below.
+
+**Via Wi-Fi from your phone (easiest)**
+1. Install **Send Files to TV** (free, by Yablio) from the Play
+   Store **on both the TV and your phone** (same Wi-Fi network).
+2. Send `ShiaAzan-AndroidTV.apk` from the phone to the TV.
+3. Tap the received file on the TV ▸ allow **Install unknown
+   apps** for *Send Files to TV* when prompted ▸ **Install**.
+4. If Play Protect says "Unsafe app blocked": **More details** ▸
+   **Install anyway**.
+
+**Via USB stick**
+1. Format the stick **FAT32 or exFAT** (not NTFS) and copy
+   `ShiaAzan-AndroidTV.apk` onto it (the file, not the zip).
+2. Install a file manager on the TV from the Play Store
+   (*File Commander*, *FX* or *X-plore*) — this is the piece most
+   TVs are missing.
+3. Open the file manager ▸ browse to the USB stick ▸ tap the APK ▸
+   allow **Install unknown apps** for the file manager ▸ **Install**.
+4. If Play Protect blocks it: **More details** ▸ **Install anyway**.
+
+Full troubleshooting table (parse errors, "App not installed",
+Play Protect, non-Android-TV sets): [`android-tv/README.md`](../android-tv/README.md)
 
 **Via adb (advanced)**
 ```bash
@@ -189,8 +204,6 @@ adb install ShiaAzan-AndroidTV.apk
 **No setup needed after install** — it auto-detects your city via an
 anonymous IP lookup, or pick one of 36 built-in cities with the remote.
 The same APK also installs fine on Android phones/tablets.
-
-Full details and build instructions: [`android-tv/README.md`](../android-tv/README.md)
 
 ---
 

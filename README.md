@@ -60,8 +60,10 @@ itself alive with a 20-second ping while the app is open.
 
 ## 📺 Quick start (TV)
 
-- **Android TV**: grab `download/ShiaAzan-AndroidTV.apk`, copy to a USB
-  stick, enable *Unknown sources*, install from the TV's file manager.
+- **Android TV**: grab `download/ShiaAzan-AndroidTV.apk` and send it
+  from your phone with *Send Files to TV*, or USB + a file manager
+  (most TVs have none built in). Enable *Install unknown apps* for
+  the app you open it with, then install.
   Full guide: [`android-tv/README.md`](android-tv/README.md).
 - **Apple TV**: unzip `download/ShiaAzan-AppleTV-source.zip`, open in
   Xcode, choose your team, press ⌘R. No Mac? Mirror the web app from
