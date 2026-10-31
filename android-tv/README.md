@@ -76,8 +76,52 @@ First run: the app auto-detects your city via anonymous IP lookup —
 just press **OK** on the remote and it starts. No accounts, no
 permissions to grant.
 
+## Background adhan (v1.1.0+)
+
+The adhan now plays through the TV speakers **even when the app is
+closed**, the TV is in standby, or the TV was rebooted.
+
+How it works:
+
+1. When you open the app, the page pushes your settings (location,
+   method, reciter, volume, prayer-enabled flags) to a native
+   bridge.
+2. A native `PrayTime` port (Java, 1:1 with the JS version —
+   verified against 1,386 prayer-time combinations in
+   `scripts/verify-praytime-port.js`) computes the next 7 days of
+   prayer times.
+3. `AzanScheduler` sets an `AlarmManager.setAlarmClock` alarm for
+   every enabled prayer (max 49 alarms). `setAlarmClock` is the
+   most reliable alarm API: survives Doze, no extra permission.
+4. A persistent **foreground service** (`AzanService`) keeps the
+   process alive between alarms (Android TVs are mains-powered, so
+   there is no battery reason to kill it).
+5. When an alarm fires, `AzanReceiver` starts `AzanService` with
+   the prayer name; the service becomes foreground with a
+   "Adhan — *prayer*" notification and streams the reciter MP3
+   through the TV speakers via `MediaPlayer`.
+6. After reboot, `BootReceiver` reschedules all alarms and restarts
+   the service automatically — no need to reopen the app.
+
+If the app is open at prayer time, the page calls the native bridge
+directly (instead of its own `<audio>` element) so playback goes
+through the same service and there is never double audio.
+
+### One-time setup on the TV
+
+Open the app once (so it can save your location). If the TV is on
+Android 13+ it will ask for **Notifications** permission — **Allow**
+it so the foreground notification is visible (without it the service
+may be killed).
+
+The persistent notification **"Shia Azan — Background adhan active"**
+in the TV's notification panel is normal — it is what keeps the
+background service alive.
+
 ## Features
 
+- **Background adhan** — plays through TV speakers at each prayer
+  time even when the app is closed (see above).
 - **D-pad navigation** — arrows move focus, OK selects, Back closes
   overlays (Android TV remote, gamepad or keyboard).
 - **Zero setup** — auto-detects the city via anonymous IP lookup;
@@ -119,9 +163,15 @@ your own key for a Play Store release build.
 ```
 android-tv/
 ├── app/
-│   ├── AndroidManifest.xml        leanback launcher, INTERNET perm
+│   ├── AndroidManifest.xml        leanback launcher + bg-adhan perms
 │   ├── java/com/shiaazan/tv/
-│   │   └── MainActivity.java      WebView shell + back handling
+│   │   ├── MainActivity.java      WebView shell + JS bridge
+│   │   ├── PrayTime.java          Java port of praytime.js
+│   │   ├── Settings.java          persisted settings (loc/method/...)
+│   │   ├── AzanScheduler.java     AlarmManager.setAlarmClock for 7 days
+│   │   ├── AzanReceiver.java      alarm fire → start AzanService
+│   │   ├── AzanService.java       foreground service + MediaPlayer
+│   │   └── BootReceiver.java      reschedule after TV reboot
 │   ├── assets/tv.html             the whole TV interface
 │   └── res/
 │       ├── drawable/banner.png    TV home banner (320x180)

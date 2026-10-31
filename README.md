@@ -42,7 +42,7 @@ renowned Shia reciters.
 | `public/tv.html` | **TV web app** (self-contained, no server) | Open in any TV browser |
 | `browser-extension/` | **Chrome / Edge / Brave / Firefox** extension | Load unpacked |
 | `windows-installer/` | **Windows** desktop app | Run `install-shia-azan.bat` or build an .exe with Inno Setup |
-| `android-tv/` | **Android TV** app (leanback WebView, ~115 KB APK) | Sideload the APK — no Gradle build needed |
+| `android-tv/` | **Android TV** app (leanback WebView + background adhan service, ~128 KB APK) | Sideload the APK — no Gradle build needed |
 | `apple-tv/` | **Apple TV** app (SwiftUI + WKWebView) | Open in Xcode, ⌘R |
 | `tv-app/` | Sources for the TV interface (part1 + praytime.js + part3) | — |
 | `download/` | Ready-made packages + READMEs | See [`download/README.md`](download/README.md) |
@@ -74,11 +74,15 @@ itself alive with a 20-second ping while the app is open.
 The TV interface is a single self-contained HTML file: 10-foot UI,
 D-pad spatial navigation, zero-interaction first run (anonymous IP
 geolocation), wake-lock, and automatic adhan through the TV speakers.
+On Android TV, the bundled APK also plays the adhan in the background
+(foreground service + `AlarmManager.setAlarmClock` + a Java port of
+PrayTime that is verified against 1,386 prayer-time combinations).
 
 ## 🧪 Tests
 
 ```bash
-node scripts/test-tv-times.js   # TV page computation == main app's TS port
+node scripts/test-tv-times.js        # TV page computation == main app's TS port
+node scripts/verify-praytime-port.js # Java PrayTime port == JS reference
 ```
 
 ## 🗺️ Roadmap ideas

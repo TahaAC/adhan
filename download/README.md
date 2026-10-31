@@ -161,12 +161,21 @@ Once enabled, the app will:
 
 ## 4. Android TV ⭐ New
 
-**File:** `ShiaAzan-AndroidTV.apk`
+**File:** `ShiaAzan-AndroidTV.apk` (v1.1.0)
 
 A native Android TV app with a 10-foot UI: huge countdown, all prayer
 times, Qibla compass, and **the adhan plays automatically through your
-TV speakers** at each prayer time. Works with the TV remote
+TV speakers** at each prayer time — **even when the app is closed**, the
+TV is in standby, or the TV was rebooted. Works with the TV remote
 (D-pad navigation) and keeps the screen awake as a prayer clock.
+
+Background adhan (new in v1.1.0) uses a foreground service +
+`AlarmManager.setAlarmClock` alarms (the most reliable alarm API on
+Android, survives Doze) + a Java port of the prayer-time calculation
+that has been verified against 1,386 prayer-time combinations from the
+JavaScript reference. A persistent "Background adhan active"
+notification in the TV's notification panel keeps the process alive
+between alarms.
 
 ### Install (2 ways)
 
