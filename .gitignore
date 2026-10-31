@@ -52,3 +52,6 @@ prompt
 server.log
 # Skills directory
 /skills/
+# Android TV build artifacts
+android-tv/build/
+android-tv/debug.keystore

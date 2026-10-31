@@ -1,7 +1,7 @@
 # Shia Azan — Downloads
 
-This folder contains downloadable packages for installing the Shia Azan app
-on your device or browser.
+This folder contains downloadable packages for installing the Shia Azan
+app on your device, browser, or TV.
 
 ## 1. Windows Installer (Recommended for PC)
 
@@ -91,7 +91,7 @@ your toolbar. Click it anytime to see prayer times for your location.
 
 ---
 
-## 2. Installable PWA (Windows / Mac / Linux / Mobile)
+## 3. Installable PWA (Windows / Mac / Linux / Mobile)
 
 The web app is a **Progressive Web App (PWA)** — you can install it
 directly from your browser as a standalone desktop application.
@@ -159,12 +159,87 @@ Once enabled, the app will:
 
 ---
 
-## 3. Files in This Download
+## 4. Android TV ⭐ New
+
+**File:** `ShiaAzan-AndroidTV.apk`
+
+A native Android TV app with a 10-foot UI: huge countdown, all prayer
+times, Qibla compass, and **the adhan plays automatically through your
+TV speakers** at each prayer time. Works with the TV remote
+(D-pad navigation) and keeps the screen awake as a prayer clock.
+
+### Install (2 ways)
+
+**Via USB / file manager**
+1. Download `ShiaAzan-AndroidTV.apk` and copy it to a USB stick
+   (or download it directly on the TV with its browser).
+2. On the TV: Settings ▸ Device Preferences ▸ Security & Restrictions ▸
+   enable **Unknown sources**.
+3. Open a file manager on the TV (e.g. *File Commander*, or the
+   built-in Files app), browse to the APK, and open it.
+4. Confirm the install. The app appears on the Android TV home screen
+   with its banner.
+
+**Via adb (advanced)**
+```bash
+adb connect <TV-IP-ADDRESS>:5555
+adb install ShiaAzan-AndroidTV.apk
+```
+
+**No setup needed after install** — it auto-detects your city via an
+anonymous IP lookup, or pick one of 36 built-in cities with the remote.
+The same APK also installs fine on Android phones/tablets.
+
+Full details and build instructions: [`android-tv/README.md`](../android-tv/README.md)
+
+---
+
+## 5. Apple TV (tvOS) ⭐ New
+
+**File:** `ShiaAzan-AppleTV-source.zip`
+
+An Xcode project for a native Apple TV app (SwiftUI + WKWebView).
+Apple requires a Mac to build tvOS apps, so this is provided as source:
+
+1. Unzip and open `ShiaAzanTV.xcodeproj` in **Xcode 15+** (free).
+2. Select the **ShiaAzanTV** target ▸ Signing ▸ choose your Apple ID team.
+3. Select your Apple TV in the device dropdown (same Wi-Fi) and press **⌘R**.
+
+**No Mac? Use AirPlay instead:** open the Shia Azan web app on your
+iPhone/iPad, then Control Centre ▸ Screen Mirroring ▸ your Apple TV.
+The prayer clock and adhan mirror to the big screen.
+
+Full instructions: [`apple-tv/README.md`](../apple-tv/README.md)
+
+---
+
+## 6. Any TV / set-top box browser ⭐ New
+
+**File:** `ShiaAzan-TV.html`
+
+The whole TV interface as **one self-contained HTML file** (no server,
+no internet needed after the first run). Use it on:
+
+- **Android TV / Google TV browsers** (e.g. TV Bro, Puffin TV)
+- **Samsung Tizen / LG webOS** TVs with a browser app
+- Any computer — just double-click the file
+- A USB stick plugged into the TV
+
+Just open the file; it auto-detects the city and shows the clock.
+Keyboard arrows + Enter work like a remote. The deployed web app also
+serves it at **`/tv.html`**.
+
+---
+
+## Files in This Download
 
 | File | Description |
 |------|-------------|
 | `ShiaAzan-Windows-Installer.zip` | Windows installer package (extract and run install-shia-azan.bat) |
 | `shia-azan-extension.zip` | Browser extension package (unzip and load unpacked) |
+| `ShiaAzan-AndroidTV.apk` | Android TV app (sideload via USB or adb) |
+| `ShiaAzan-AppleTV-source.zip` | Apple TV Xcode project (build with Xcode on a Mac) |
+| `ShiaAzan-TV.html` | Standalone TV web app (works in any TV browser, offline) |
 
 ---
 
@@ -172,6 +247,8 @@ Once enabled, the app will:
 
 - Location is detected via the browser's Geolocation API and stored
   locally on your device only
+- The TV app detects location via an **anonymous IP lookup**
+  (ipwho.is / geojs.io — no account, no tracking)
 - Reverse-geocoding uses the anonymous BigDataCloud API (no API key)
 - City search uses the anonymous Open-Meteo geocoding API
 - Adhan audio is streamed from praytimes.org (CORS-enabled)
@@ -181,4 +258,4 @@ Once enabled, the app will:
 
 - **PrayTime library** (v3.2): Copyright (c) 2007-2025 Hamid Zarrabi-Zadeh,
   MIT License. See [praytimes.org](https://praytimes.org).
-- **App and extension code**: MIT License.
+- **App, extension, and TV code**: MIT License.

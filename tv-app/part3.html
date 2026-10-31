@@ -1,0 +1,605 @@
+<script>
+/* ================= Shia Azan TV — app logic =================
+ * - Zero-interaction design: boots with a default city, then
+ *   refines via anonymous IP geolocation. Everything readable
+ *   without touching the remote.
+ * - Full D-pad spatial navigation (Arrow keys = remote).
+ * - Prayer scheduling with automatic adhan playback.
+ * ============================================================ */
+(function () {
+'use strict';
+
+/* ---------- static data ---------- */
+var KAABA = { lat: 21.4225, lng: 39.8262 };
+
+var RECITERS = [
+  ['Moazzen-Zadeh', 'Moazzen Zadeh'],
+  ['Aghati', 'Aghati'],
+  ['Ghalwash', 'Ghalwash'],
+  ['Kazem-Zadeh', 'Kazem Zadeh'],
+  ['Mohammad-Zadeh', 'Mohammad Zadeh'],
+  ['Rezaeian', 'Rezaeian'],
+  ['Rowhani-Nejad', 'Rowhani Nejad'],
+  ['Salimi', 'Salimi'],
+  ['Sharif', 'Sharif'],
+  ['Sobhdel', 'Sobhdel'],
+  ['Tasvieh-Chi', 'Tasviyechi'],
+  ['Tookhi', 'Tookhi']
+];
+
+var METHODS = ['Tehran', 'Jafari', 'Karachi', 'MWL', 'ISNA', 'Egypt', 'Makkah', 'France', 'Russia', 'Malaysia', 'Singapore'];
+
+var CITIES = [
+  ['Najaf', 'Iraq', 32.0, 44.3333, 'Asia/Baghdad'],
+  ['Karbala', 'Iraq', 32.616, 44.0249, 'Asia/Baghdad'],
+  ['Baghdad', 'Iraq', 33.3152, 44.3661, 'Asia/Baghdad'],
+  ['Basra', 'Iraq', 30.5085, 47.7804, 'Asia/Baghdad'],
+  ['Tehran', 'Iran', 35.6892, 51.389, 'Asia/Tehran'],
+  ['Mashhad', 'Iran', 36.2605, 59.6168, 'Asia/Tehran'],
+  ['Qom', 'Iran', 34.6416, 50.8746, 'Asia/Tehran'],
+  ['Isfahan', 'Iran', 32.6539, 51.666, 'Asia/Tehran'],
+  ['Shiraz', 'Iran', 29.5918, 52.5837, 'Asia/Tehran'],
+  ['Tabriz', 'Iran', 38.08, 46.2919, 'Asia/Tehran'],
+  ['Beirut', 'Lebanon', 33.8938, 35.5018, 'Asia/Beirut'],
+  ['Damascus', 'Syria', 33.5138, 36.2765, 'Asia/Damascus'],
+  ['Manama', 'Bahrain', 26.2285, 50.586, 'Asia/Bahrain'],
+  ['Kuwait City', 'Kuwait', 29.3759, 47.9774, 'Asia/Kuwait'],
+  ['Doha', 'Qatar', 25.2854, 51.531, 'Asia/Qatar'],
+  ['Dubai', 'UAE', 25.2048, 55.2708, 'Asia/Dubai'],
+  ['Istanbul', 'Turkey', 41.0082, 28.9784, 'Europe/Istanbul'],
+  ['Karachi', 'Pakistan', 24.8607, 67.0011, 'Asia/Karachi'],
+  ['Lahore', 'Pakistan', 31.5204, 74.3587, 'Asia/Karachi'],
+  ['Islamabad', 'Pakistan', 33.6844, 73.0479, 'Asia/Karachi'],
+  ['Quetta', 'Pakistan', 30.1798, 66.975, 'Asia/Karachi'],
+  ['Delhi', 'India', 28.7041, 77.1025, 'Asia/Kolkata'],
+  ['Lucknow', 'India', 26.8467, 80.9462, 'Asia/Kolkata'],
+  ['Hyderabad', 'India', 17.385, 78.4867, 'Asia/Kolkata'],
+  ['Mumbai', 'India', 19.076, 72.8777, 'Asia/Kolkata'],
+  ['Jakarta', 'Indonesia', -6.2088, 106.8456, 'Asia/Jakarta'],
+  ['Surabaya', 'Indonesia', -7.2575, 112.7521, 'Asia/Jakarta'],
+  ['Kuala Lumpur', 'Malaysia', 3.139, 101.6869, 'Asia/Kuala_Lumpur'],
+  ['Singapore', 'Singapore', 1.3521, 103.8198, 'Asia/Singapore'],
+  ['London', 'UK', 51.5074, -0.1278, 'Europe/London'],
+  ['Toronto', 'Canada', 43.6532, -79.3832, 'America/Toronto'],
+  ['New York', 'USA', 40.7128, -74.006, 'America/New_York'],
+  ['Dearborn', 'USA', 42.3223, -83.1763, 'America/Detroit'],
+  ['Los Angeles', 'USA', 34.0522, -118.2437, 'America/Los_Angeles'],
+  ['Sydney', 'Australia', -33.8688, 151.2093, 'Australia/Sydney'],
+  ['Melbourne', 'Australia', -37.8136, 144.9631, 'Australia/Melbourne']
+];
+
+var PRAYERS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha', 'midnight'];
+var MAIN = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+var P_EN = { fajr: 'Fajr', sunrise: 'Sunrise', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha', midnight: 'Midnight' };
+var P_AR = { fajr: 'الفجر', sunrise: 'الشروق', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء', midnight: 'منتصف الليل' };
+var HIJRI_MONTHS = ['Muharram', 'Safar', 'Rabi al-Awwal', 'Rabi al-Thani', 'Jumada al-Ula', 'Jumada al-Thani', 'Rajab', "Sha'ban", 'Ramadan', 'Shawwal', "Dhu al-Qi'dah", 'Dhu al-Hijjah'];
+var COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+
+/* ---------- state ---------- */
+var LS_KEY = 'shiaazan-tv-v1';
+var DEFAULTS = {
+  city: null,
+  method: 'Tehran',
+  asr: 'Standard',
+  timeFormat: '12h',
+  hijriAdj: 0,
+  adhan: true,
+  reciterId: 'Moazzen-Zadeh',
+  volume: 1,
+  azanEnabled: { fajr: true, sunrise: false, dhuhr: true, asr: true, maghrib: true, isha: true, midnight: false }
+};
+var S = loadSettings();
+var days = null;          // { key, prev, cur, next } — prayer times in unix seconds
+var fired = loadFired();  // { d: 'YYYY-MM-DD', k: { dayKey+prayer: true } }
+var azanActive = null;    // { prayer, test }
+var audioBlocked = false;
+var fmt = {};             // cached Intl formatters
+var toastTimer = null;
+
+/* ---------- helpers ---------- */
+function $(id) { return document.getElementById(id); }
+function loadSettings() {
+  try {
+    var s = JSON.parse(localStorage.getItem(LS_KEY));
+    if (s && s.city && s.city.lat !== undefined) {
+      var d = JSON.parse(JSON.stringify(DEFAULTS));
+      for (var k in s) if (k in d) d[k] = s[k];
+      d.azanEnabled = { azanEnabled: 0 } && Object.assign({}, DEFAULTS.azanEnabled, s.azanEnabled || {});
+      return d;
+    }
+  } catch (e) {}
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+function saveSettings() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+function loadFired() { try { return JSON.parse(localStorage.getItem(LS_KEY + '-fired')) || { d: '', k: {} }; } catch (e) { return { d: '', k: {} }; } }
+function saveFired() { try { localStorage.setItem(LS_KEY + '-fired', JSON.stringify(fired)); } catch (e) {} }
+function cycle(list, cur, dir) {
+  var i = list.indexOf(cur);
+  if (i < 0) i = 0;
+  return list[(i + dir + list.length) % list.length];
+}
+function buildFormatters() {
+  var tz = S.city ? S.city.tz : 'UTC';
+  var h12 = S.timeFormat !== '24h';
+  var opt = function (extra) {
+    var o = { timeZone: tz, hour12: h12 };
+    for (var k in extra) o[k] = extra[k];
+    return o;
+  };
+  fmt.time = new Intl.DateTimeFormat('en-US', opt({ hour: h12 ? 'numeric' : '2-digit', minute: '2-digit' }));
+  fmt.clock = new Intl.DateTimeFormat('en-US', opt({ hour: h12 ? 'numeric' : '2-digit', minute: '2-digit', second: '2-digit' }));
+  fmt.date = new Intl.DateTimeFormat('en-US', opt({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+  fmt.day = new Intl.DateTimeFormat('en-CA', { timeZone: tz });
+}
+function fmtTime(sec) { try { return fmt.time.format(new Date(sec * 1000)); } catch (e) { return '—'; } }
+function cityDateStr() { return fmt.day.format(new Date()); }
+
+/* ---------- computation ---------- */
+function computeDay(ymd) {
+  var pt = new PrayTime(S.method);
+  pt.location([S.city.lat, S.city.lng]);
+  pt.timezone(S.city.tz);
+  pt.adjust({ asr: S.asr });
+  pt.format('X');
+  return pt.times(ymd);
+}
+function compute() {
+  var key = cityDateStr();
+  var ymd = key.split('-').map(Number);
+  var mid = new Date(Date.UTC(ymd[0], ymd[1] - 1, ymd[2]));
+  var prevD = new Date(mid.getTime() - 86400000);
+  var nextD = new Date(mid.getTime() + 86400000);
+  days = {
+    key: key,
+    prev: computeDay([prevD.getUTCFullYear(), prevD.getUTCMonth() + 1, prevD.getUTCDate()]),
+    cur: computeDay(ymd),
+    next: computeDay([nextD.getUTCFullYear(), nextD.getUTCMonth() + 1, nextD.getUTCDate()])
+  };
+  if (fired.d !== key) { fired = { d: key, k: {} }; saveFired(); }
+  buildSchedule();
+  renderDates();
+  renderQibla();
+  renderCityLabel();
+}
+function nextPrayer(now) {
+  var c = days.cur, n = days.next, i, p, at;
+  for (i = 0; i < MAIN.length; i++) {
+    p = MAIN[i]; at = c[p];
+    if (typeof at === 'number' && at > now + 1) return { p: p, at: at, day: 'today' };
+  }
+  at = n.fajr;
+  return (typeof at === 'number') ? { p: 'fajr', at: at, day: 'tomorrow' } : null;
+}
+function prevEvent(now) {
+  // latest passed event among yesterday's isha/midnight, today's prayers, tonight's midnight
+  var cand = [
+    { p: 'isha', at: days.prev.isha }, { p: 'midnight', at: days.prev.midnight },
+    { p: 'fajr', at: days.cur.fajr }, { p: 'sunrise', at: days.cur.sunrise },
+    { p: 'dhuhr', at: days.cur.dhuhr }, { p: 'asr', at: days.cur.asr },
+    { p: 'maghrib', at: days.cur.maghrib }, { p: 'isha', at: days.cur.isha },
+    { p: 'midnight', at: days.cur.midnight }
+  ];
+  var best = null, i;
+  for (i = 0; i < cand.length; i++)
+    if (typeof cand[i].at === 'number' && cand[i].at <= now && (!best || cand[i].at > best.at)) best = cand[i];
+  return best;
+}
+
+/* ---------- rendering ---------- */
+function renderCityLabel() {
+  $('cityName').textContent = S.city.name + (S.city.country ? ', ' + S.city.country : '');
+  $('methodLabel').textContent = 'Method: ' + S.method + ' · Asr: ' + S.asr;
+}
+function renderDates() {
+  try {
+    var d = new Date(Date.now() + S.hijriAdj * 86400000);
+    var f = new Intl.DateTimeFormat('en-US-u-ca-islamic', { day: 'numeric', month: 'numeric', year: 'numeric' });
+    var parts = f.formatToParts(d), dd = 1, mm = 1, yy = 1447, i, pt;
+    for (i = 0; i < parts.length; i++) {
+      pt = parts[i];
+      if (pt.type === 'day') dd = parseInt(pt.value, 10);
+      else if (pt.type === 'month') mm = parseInt(pt.value, 10);
+      else if (pt.type === 'year') yy = parseInt(pt.value, 10);
+    }
+    $('hijriDate').textContent = dd + ' ' + (HIJRI_MONTHS[mm - 1] || '') + ' ' + yy + ' AH';
+  } catch (e) { $('hijriDate').textContent = ''; }
+  $('gregDate').textContent = fmt.date.format(new Date());
+}
+function renderQibla() {
+  var lat = S.city.lat, lng = S.city.lng;
+  var dLat = (KAABA.lat - lat) * Math.PI / 180;
+  var dLng = (KAABA.lng - lng) * Math.PI / 180;
+  var rLat = lat * Math.PI / 180, rK = KAABA.lat * Math.PI / 180;
+  var y = Math.sin(dLng) * Math.cos(rK);
+  var x = Math.cos(rLat) * Math.sin(rK) - Math.sin(rLat) * Math.cos(rK) * Math.cos(dLng);
+  var bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  $('qiblaNeedle').setAttribute('transform', 'rotate(' + bearing.toFixed(1) + ' 100 100)');
+  $('qiblaDeg').textContent = Math.round(bearing) + '° ' + COMPASS[Math.round(bearing / 22.5) % 16];
+  // distance (haversine)
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(rLat) * Math.cos(rK) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  var dist = Math.round(2 * 6371 * Math.asin(Math.sqrt(a)));
+  $('qiblaSub').innerHTML = 'from true North<br>' + dist.toLocaleString() + ' km to the Kaaba';
+}
+function buildSchedule() {
+  var html = '', i, p;
+  for (i = 0; i < PRAYERS.length; i++) {
+    p = PRAYERS[i];
+    html += '<div class="slot" id="slot-' + p + '">' +
+      '<span class="s-tag">NEXT</span>' +
+      '<div class="s-name">' + P_EN[p] + '</div>' +
+      '<div class="s-ar">' + P_AR[p] + '</div>' +
+      '<div class="s-time" id="time-' + p + '">—</div>' +
+      '</div>';
+  }
+  $('schedule').innerHTML = html;
+  for (i = 0; i < PRAYERS.length; i++) {
+    p = PRAYERS[i];
+    var at = days.cur[p];
+    $('time-' + p).textContent = (typeof at === 'number') ? fmtTime(at) : '—';
+  }
+}
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function renderTick() {
+  var now = Date.now() / 1000;
+  if (cityDateStr() !== days.key) { compute(); return; }
+  try { $('clock').textContent = fmt.clock.format(new Date()); } catch (e) {}
+
+  var np = nextPrayer(now);
+  if (np) {
+    $('nextName').textContent = P_EN[np.p];
+    $('nextNameAr').textContent = P_AR[np.p];
+    $('nextTime').textContent = fmtTime(np.at) + (np.day === 'tomorrow' ? ' · tomorrow' : '');
+    var left = np.at - now;
+    var h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), s = Math.floor(left % 60);
+    var cd = $('countdown');
+    if (h > 0) cd.innerHTML = pad(h) + '<small>h</small>' + pad(m) + '<small>m</small>' + pad(s) + '<small>s</small>';
+    else cd.innerHTML = pad(m) + '<small>m</small>' + pad(s) + '<small>s</small>';
+    var pe = prevEvent(now);
+    if (pe) {
+      var el = Math.max(0, now - pe.at), tot = Math.max(1, np.at - pe.at);
+      $('barFill').style.width = Math.min(100, (el / tot) * 100).toFixed(1) + '%';
+      var eh = Math.floor(el / 3600), em = Math.floor((el % 3600) / 60);
+      $('sinceLine').textContent = eh > 0 ? eh + 'h ' + em + 'm since ' + P_EN[pe.p] : em + 'm since ' + P_EN[pe.p];
+    }
+    // highlight schedule cards
+    var curKey = null, i, p, at;
+    for (i = 0; i < PRAYERS.length; i++) {
+      p = PRAYERS[i]; at = days.cur[p];
+      if (typeof at === 'number' && at <= now) curKey = p;
+    }
+    if (!curKey) curKey = 'isha'; // before fajr
+    for (i = 0; i < PRAYERS.length; i++) {
+      p = PRAYERS[i];
+      var el2 = $('slot-' + p);
+      if (el2) {
+        el2.classList.toggle('now', p === curKey);
+        el2.classList.toggle('next', np.p === p);
+      }
+    }
+  }
+  checkFired(now);
+}
+
+/* ---------- adhan ---------- */
+var audio = $('azanAudio');
+audio.addEventListener('ended', closeAzan);
+audio.addEventListener('timeupdate', function () {
+  if (azanActive && audio.duration && isFinite(audio.duration))
+    $('azanBarFill').style.width = (audio.currentTime / audio.duration * 100).toFixed(1) + '%';
+});
+function reciterUrl() {
+  var r = null, i;
+  for (i = 0; i < RECITERS.length; i++) if (RECITERS[i][0] === S.reciterId) r = RECITERS[i];
+  if (!r) r = RECITERS[0];
+  return 'https://praytimes.org/audio/shia/' + r[0] + '.mp3';
+}
+function playAdhan() {
+  audio.volume = Math.max(0, Math.min(1, S.volume));
+  var url = reciterUrl();
+  if (audio.getAttribute('src') !== url) audio.src = url;
+  try { audio.currentTime = 0; } catch (e) {}
+  var p = audio.play();
+  if (p && p.catch) p.catch(function () {
+    audioBlocked = true;
+    $('soundHint').classList.remove('hidden');
+    $('azanNote').textContent = 'Sound blocked — press OK or click "Enable sound" above';
+  });
+}
+function openAzan(p, isTest) {
+  azanActive = { prayer: p, test: !!isTest };
+  $('azanAr').textContent = P_AR[p];
+  $('azanEn').textContent = P_EN[p] + (isTest ? ' · test' : '');
+  $('azanNote').textContent = 'Adhan playing…';
+  $('azanBarFill').style.width = '0%';
+  $('azanScreen').classList.remove('hidden');
+  playAdhan();
+  $('btnStopAzan').focus();
+}
+function closeAzan() {
+  azanActive = null;
+  $('azanScreen').classList.add('hidden');
+}
+function stopAzan() { audio.pause(); try { audio.currentTime = 0; } catch (e) {} closeAzan(); }
+function beep() {
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    var ctx = new AC();
+    var osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.value = 880;
+    var t0 = ctx.currentTime;
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t0); osc.stop(t0 + 0.5);
+  } catch (e) {}
+}
+function fireEvent(p) {
+  if (!S.adhan || !S.azanEnabled[p]) return;
+  if (p === 'sunrise' || p === 'midnight') { beep(); toast(P_EN[p] + (p === 'sunrise' ? ' — sunrise reminder' : ' — midnight reminder')); return; }
+  openAzan(p, false);
+}
+function checkFired(now) {
+  var i, p, at;
+  for (i = 0; i < PRAYERS.length; i++) {
+    p = PRAYERS[i]; at = days.cur[p];
+    if (typeof at !== 'number' || at > now || now - at > 120) continue;
+    var k = days.key + p;
+    if (!fired.k[k]) { fired.k[k] = true; saveFired(); fireEvent(p); }
+  }
+  // Jafari midnight of the previous calendar day lands early this morning
+  at = days.prev.midnight;
+  if (typeof at === 'number' && at <= now && now - at <= 120) {
+    var k2 = 'pm' + days.prev.key;
+    if (!fired.k[k2]) { fired.k[k2] = true; saveFired(); fireEvent('midnight'); }
+  }
+}
+
+/* ---------- overlays / settings UI ---------- */
+function openOverlay(id) {
+  $(id).classList.remove('hidden');
+  var first = $(id).querySelector('.focusable');
+  if (first) first.focus();
+}
+function closeOverlay(id) { $(id).classList.add('hidden'); }
+function isOpen(id) { return !$(id).classList.contains('hidden'); }
+
+function renderSettingsValues() {
+  $('vCity').textContent = S.city.name + (S.city.country ? ', ' + S.city.country : '');
+  $('vMethod').textContent = S.method;
+  $('vAsr').textContent = S.asr;
+  $('vClock').textContent = S.timeFormat === '24h' ? '24-hour' : '12-hour';
+  $('vHijri').textContent = (S.hijriAdj > 0 ? '+' : '') + S.hijriAdj + ' day' + (Math.abs(S.hijriAdj) === 1 ? '' : 's');
+  $('vAdhan').textContent = S.adhan ? 'On' : 'Off';
+  var r = null, i;
+  for (i = 0; i < RECITERS.length; i++) if (RECITERS[i][0] === S.reciterId) r = RECITERS[i];
+  $('vReciter').textContent = r ? r[1] : RECITERS[0][1];
+  $('vVolume').textContent = Math.round(S.volume * 100) + '%';
+}
+var ADJ = {
+  method: function (d) { S.method = cycle(METHODS, S.method, d); },
+  asr: function (d) { S.asr = cycle(['Standard', 'Hanafi'], S.asr, d); },
+  clock: function (d) { S.timeFormat = cycle(['12h', '24h'], S.timeFormat, d); },
+  hijri: function (d) { S.hijriAdj = Math.max(-2, Math.min(2, S.hijriAdj + d)); },
+  adhan: function () { S.adhan = !S.adhan; },
+  reciter: function (d) {
+    var ids = RECITERS.map(function (r) { return r[0]; });
+    S.reciterId = cycle(ids, S.reciterId, d);
+  },
+  volume: function (d) { S.volume = Math.max(0, Math.min(1, Math.round((S.volume + d * 0.1) * 10) / 10)); }
+};
+function adjust(name, dir) {
+  if (ADJ[name]) ADJ[name](dir);
+  saveSettings();
+  renderSettingsValues();
+  if (name === 'method' || name === 'asr' || name === 'clock') { buildFormatters(); compute(); }
+  if (name === 'volume' && audio) audio.volume = Math.max(0, Math.min(1, S.volume));
+  if (name === 'hijri') renderDates();
+}
+
+/* ---------- city picker ---------- */
+function buildCityGrid() {
+  var html = '', i, c;
+  for (i = 0; i < CITIES.length; i++) {
+    c = CITIES[i];
+    html += '<button class="city-btn focusable" data-i="' + i + '">' +
+      '<div class="c-name">' + c[0] + '</div>' +
+      '<div class="c-country">' + c[1] + '</div></button>';
+  }
+  $('cityGrid').innerHTML = html;
+  $('cityGrid').addEventListener('click', function (e) {
+    var b = e.target.closest('.city-btn');
+    if (b) pickCity(parseInt(b.getAttribute('data-i'), 10));
+  });
+}
+function pickCity(i) {
+  var c = CITIES[i];
+  setCity({ name: c[0], country: c[1], lat: c[2], lng: c[3], tz: c[4] });
+  closeOverlay('cityScreen');
+  toast('City set to ' + c[0] + ', ' + c[1]);
+}
+function setCity(city, opts) {
+  S.city = city;
+  saveSettings();
+  buildFormatters();
+  compute();
+  if (!opts || !opts.silent) renderCityLabel();
+}
+async function detectIP() {
+  var j = null, i;
+  var urls = ['https://ipwho.is/', 'https://get.geojs.io/v1/ip/geo.json'];
+  for (i = 0; i < urls.length; i++) {
+    try {
+      var r = await fetch(urls[i], { cache: 'no-store' });
+      j = await r.json();
+      if (j && isFinite(parseFloat(j.latitude)) && parseFloat(j.latitude) !== 0) {
+        var tz = (j.timezone && (j.timezone.id || j.timezone)) || (Intl.DateTimeFormat().resolvedOptions().timeZone);
+        return { name: j.city || 'Your area', country: j.country || '', lat: parseFloat(j.latitude), lng: parseFloat(j.longitude), tz: typeof tz === 'string' ? tz : 'UTC' };
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
+/* ---------- toast ---------- */
+function toast(msg) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.add('hidden'); }, 4000);
+}
+
+/* ---------- spatial navigation (D-pad) ----------
+ * Nearest-first scoring: primary axis distance + 1.4x cross-axis
+ * penalty; the SMALLEST score wins. When an overlay is open,
+ * navigation is constrained to that overlay.                       */
+function focusables() {
+  var els = [];
+  var overlays = document.querySelectorAll('.overlay:not(.hidden)');
+  var roots = overlays.length ? overlays : [document];
+  for (var r = 0; r < roots.length; r++)
+    els = els.concat(Array.prototype.slice.call(roots[r].querySelectorAll('.focusable')));
+  var hint = document.getElementById('soundHint');
+  if (hint && !hint.classList.contains('hidden')) els.push(document.getElementById('btnEnableSound'));
+  return els.filter(function (el) {
+    return el.offsetParent !== null && !el.disabled;
+  });
+}
+function moveFocus(dir) {
+  var els = focusables();
+  if (!els.length) return;
+  var active = document.activeElement;
+  if (!active || els.indexOf(active) < 0) { els[0].focus(); return; }
+  var ar = active.getBoundingClientRect();
+  var cx = ar.left + ar.width / 2, cy = ar.top + ar.height / 2;
+  var best = null, bestScore = Infinity;
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    if (el === active) continue;
+    var r = el.getBoundingClientRect();
+    var x = r.left + r.width / 2, y = r.top + r.height / 2;
+    var dx = x - cx, dy = y - cy, primary, secondary;
+    if (dir === 'up') { if (dy > -8) continue; primary = -dy; secondary = Math.abs(dx); }
+    else if (dir === 'down') { if (dy < 8) continue; primary = dy; secondary = Math.abs(dx); }
+    else if (dir === 'left') { if (dx > -8) continue; primary = -dx; secondary = Math.abs(dy); }
+    else { if (dx < 8) continue; primary = dx; secondary = Math.abs(dy); }
+    var score = primary + secondary * 1.4;
+    if (score < bestScore) { bestScore = score; best = el; }
+  }
+  if (best) {
+    best.focus();
+    try { best.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+  }
+}
+function unlockAudioGesture() {
+  audioBlocked = false;
+  $('soundHint').classList.add('hidden');
+}
+document.addEventListener('keydown', function (e) {
+  var key = e.key;
+  if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+    var adj = document.activeElement && document.activeElement.getAttribute && document.activeElement.getAttribute('data-adj');
+    if ((key === 'ArrowLeft' || key === 'ArrowRight') && adj && isOpen('settingsScreen')) {
+      e.preventDefault();
+      adjust(adj, key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
+    e.preventDefault();
+    moveFocus(key === 'ArrowUp' ? 'up' : key === 'ArrowDown' ? 'down' : key === 'ArrowLeft' ? 'left' : 'right');
+  } else if (key === 'Enter' || key === ' ' || key === 'Spacebar') {
+    unlockAudioGesture();
+  } else if (key === 'Escape' || key === 'Backspace' || key === 'BrowserBack' || key === 'GoBack') {
+    e.preventDefault();
+    window.__handleBack();
+  }
+});
+document.addEventListener('click', function (e) {
+  unlockAudioGesture();
+  var t = e.target;
+  while (t && t !== document.body) {
+    if (t.id === 'btnEnableSound') { unlockAudioGesture(); if (azanActive) playAdhan(); return; }
+    t = t.parentElement;
+  }
+});
+
+/* Android WebView back-button bridge */
+window.__handleBack = function () {
+  if (azanActive) { stopAzan(); return true; }
+  if (isOpen('cityScreen')) { closeOverlay('cityScreen'); return true; }
+  if (isOpen('settingsScreen')) { closeOverlay('settingsScreen'); return true; }
+  return false;
+};
+
+/* ---------- wire up buttons ---------- */
+$('btnSettings').addEventListener('click', function () { renderSettingsValues(); openOverlay('settingsScreen'); });
+$('btnCity').addEventListener('click', function () { openOverlay('cityScreen'); });
+$('rowCity').addEventListener('click', function () { closeOverlay('settingsScreen'); openOverlay('cityScreen'); });
+$('rowTest').addEventListener('click', function () { openAzan('dhuhr', true); });
+$('btnStopAzan').addEventListener('click', stopAzan);
+$('btnEnableSound').addEventListener('click', function () { unlockAudioGesture(); if (azanActive) playAdhan(); });
+$('btnAutoDetect').addEventListener('click', async function () {
+  toast('Detecting location…');
+  var c = await detectIP();
+  if (c) { setCity(c); closeOverlay('cityScreen'); toast('Location detected: ' + c.name + (c.country ? ', ' + c.country : '')); }
+  else toast('Could not auto-detect — please pick a city');
+});
+
+/* ---------- dial ticks ---------- */
+(function () {
+  var g = $('dialTicks'), html = '', i;
+  for (i = 0; i < 24; i++) {
+    var major = i % 6 === 0;
+    var a = (i * 15 - 90) * Math.PI / 180;
+    var r1 = major ? 80 : 84, r2 = 90;
+    html += '<line x1="' + (100 + r1 * Math.cos(a)).toFixed(1) + '" y1="' + (100 + r1 * Math.sin(a)).toFixed(1) +
+      '" x2="' + (100 + r2 * Math.cos(a)).toFixed(1) + '" y2="' + (100 + r2 * Math.sin(a)).toFixed(1) +
+      '" stroke="rgba(217,169,78,' + (major ? '0.55' : '0.25') + ')" stroke-width="' + (major ? 2.5 : 1.5) + '"/>';
+  }
+  g.innerHTML = html;
+})();
+
+/* ---------- responsive root font size ---------- */
+function fit() {
+  var px = Math.round(Math.max(13, Math.min(30, window.innerHeight / 38)));
+  document.documentElement.style.fontSize = px + 'px';
+}
+window.addEventListener('resize', fit);
+fit();
+
+/* ---------- keep the screen awake ---------- */
+var wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', function () {});
+    }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', function () { if (!document.hidden) requestWakeLock(); });
+
+/* ---------- boot ---------- */
+async function boot() {
+  buildFormatters();
+  if (!S.city) {
+    // Boot instantly with the default, then refine via IP. Zero interaction needed.
+    setCity({ name: 'Najaf', country: 'Iraq', lat: 32.0, lng: 44.3333, tz: 'Asia/Baghdad' }, { silent: true });
+    renderCityLabel();
+    var c = await detectIP();
+    if (c) { setCity(c); toast('Location detected: ' + c.name + (c.country ? ', ' + c.country : '')); }
+    else toast('Press OK and pick your city for exact times');
+  } else {
+    compute();
+  }
+  renderTick();
+  setInterval(renderTick, 1000);
+  requestWakeLock();
+}
+buildCityGrid();
+boot();
+})();
+</script>
+</body>
+</html>
