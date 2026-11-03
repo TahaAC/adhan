@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="x-ua-compatible" content="ie=edge">
+<title>Shia Azan - Settings</title>
+<HTA:APPLICATION
+  ID="ShiaAzanConfig"
+  APPLICATIONNAME="Shia Azan Settings"
+  BORDER="dialog"
+  CAPTION="yes"
+  ICON=""
+  MAXIMIZEBUTTON="no"
+  MINIMIZEBUTTON="no"
+  SCROLL="no"
+  SHOWINTASKBAR="yes"
+  SINGLEINSTANCE="yes"
+  WINDOWSTATE="normal"
+/>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #03150e; color: #e8f5e9; margin: 0; padding: 24px; font-size: 14px; }
+  h1 { color: #66bb6a; font-size: 22px; margin: 0 0 4px 0; }
+  h2 { color: #81c784; font-size: 14px; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 0.08em; }
+  .sub { color: #a5d6a7; font-size: 12px; margin-bottom: 16px; }
+  label { display: block; margin: 8px 0 4px 0; color: #c8e6c9; }
+  select, input[type="text"], input[type="number"] { width: 100%; padding: 6px 8px; background: #0a2418; color: #e8f5e9; border: 1px solid #2e7d32; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+  input[type="range"] { width: 100%; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  .prayers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .prayer { display: flex; align-items: center; gap: 8px; padding: 8px; background: #0a2418; border: 1px solid #1b5e20; border-radius: 4px; cursor: pointer; }
+  .prayer input { width: auto; }
+  .prayer label { margin: 0; cursor: pointer; text-transform: capitalize; }
+  .buttons { margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end; }
+  button { padding: 8px 20px; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: 600; }
+  .save { background: #4caf50; color: white; }
+  .save:hover { background: #66bb6a; }
+  .cancel { background: #37474f; color: white; }
+  .status { margin-top: 12px; padding: 8px 12px; border-radius: 4px; font-size: 13px; display: none; }
+  .status.ok { background: #1b5e20; color: #a5d6a7; display: block; }
+  .status.err { background: #b71c1c; color: #ffcdd2; display: block; }
+</style>
+<script language="JScript">
+  var SHELL = new ActiveXObject("WScript.Shell");
+  var FSO = new ActiveXObject("Scripting.FileSystemObject");
+  var APPDATA = SHELL.ExpandEnvironmentStrings("%APPDATA%");
+  var SETTINGS_DIR = APPDATA + "\\ShiaAzan";
+  var SETTINGS_FILE = SETTINGS_DIR + "\\settings.json";
+
+  var CITIES = [
+    ['Najaf', 'Iraq', 32.0, 44.3333],
+    ['Karbala', 'Iraq', 32.616, 44.0249],
+    ['Baghdad', 'Iraq', 33.3152, 44.3661],
+    ['Kazimayn', 'Iraq', 33.379, 44.3359],
+    ['Samarra', 'Iraq', 34.198, 43.876],
+    ['Kufa', 'Iraq', 32.0, 44.4],
+    ['Basra', 'Iraq', 30.5085, 47.7804],
+    ['Tehran', 'Iran', 35.7, 51.4],
+    ['Mashhad', 'Iran', 36.3, 59.6],
+    ['Qom', 'Iran', 34.64, 50.88],
+    ['Shiraz', 'Iran', 29.59, 52.58],
+    ['Isfahan', 'Iran', 32.65, 51.67],
+    ['Beirut', 'Lebanon', 33.89, 35.50],
+    ['Damascus', 'Syria', 33.51, 36.29],
+    ['Mecca', 'Saudi Arabia', 21.39, 39.86],
+    ['Medina', 'Saudi Arabia', 24.47, 39.61],
+    ['Jerusalem', 'Palestine', 31.78, 35.22],
+    ['Kuwait City', 'Kuwait', 29.37, 47.97],
+    ['Manama', 'Bahrain', 26.23, 50.58],
+    ['Doha', 'Qatar', 25.29, 51.50],
+    ['Dubai', 'UAE', 25.27, 55.30],
+    ['Muscat', 'Oman', 23.59, 58.38],
+    ['Sanaa', 'Yemen', 15.35, 44.20],
+    ['London', 'UK', 51.50, -0.13],
+    ['New York', 'USA', 40.71, -74.01],
+    ['Toronto', 'Canada', 43.65, -79.38],
+    ['Sydney', 'Australia', -33.87, 151.21],
+    ['Dearborn', 'USA', 42.32, -83.21],
+    ['Los Angeles', 'USA', 34.05, -118.24],
+    ['Chicago', 'USA', 41.88, -87.63],
+    ['Houston', 'USA', 29.76, -95.37],
+    ['Berlin', 'Germany', 52.52, 13.40],
+    ['Paris', 'France', 48.85, 2.35],
+    ['Istanbul', 'Turkey', 41.01, 28.98]
+  ];
+
+  var RECITERS = [
+    ['Moazzen-Zadeh', 'Moazzen Zadeh'],
+    ['Aghati', 'Aghati'],
+    ['Ghalwash', 'Ghalwash'],
+    ['Kazem-Zadeh', 'Kazem Zadeh'],
+    ['Mohammad-Zadeh', 'Mohammad Zadeh'],
+    ['Rezaeian', 'Rezaeian'],
+    ['Rowhani-Nejad', 'Rowhani Nejad'],
+    ['Salimi', 'Salimi'],
+    ['Sharif', 'Sharif'],
+    ['Sobhdel', 'Sobhdel'],
+    ['Tasvieh-Chi', 'Tasviyechi'],
+    ['Tookhi', 'Tookhi']
+  ];
+
+  var METHODS = ['Tehran','Jafari','MWL','ISNA','Egypt','Makkah','Karachi','France','Russia','Malaysia','Singapore'];
+  var ASR = ['Standard','Hanafi'];
+  var PRAYERS = ['fajr','sunrise','dhuhr','asr','maghrib','isha','midnight'];
+
+  function readText(path) {
+    if (!FSO.FileExists(path)) return null;
+    try {
+      var f = FSO.OpenTextFile(path, 1, false, -1);
+      var s = f.ReadAll(); f.Close(); return s;
+    } catch (e) {
+      try {
+        var f2 = FSO.OpenTextFile(path, 1, false, 0);
+        var s2 = f2.ReadAll(); f2.Close(); return s2;
+      } catch (e2) { return null; }
+    }
+  }
+
+  function writeText(path, s) {
+    var dir = FSO.GetParentFolderName(path);
+    if (!FSO.FolderExists(dir)) FSO.CreateFolder(dir);
+    var f = FSO.CreateTextFile(path, true, true);
+    f.Write(s); f.Close();
+  }
+
+  function parseJSON(s) {
+    try { return eval('(' + s + ')'); } catch (e) { return null; }
+  }
+
+  function stringifyJSON(o) {
+    var parts = [], k;
+    for (k in o) {
+      var v = o[k], sv;
+      if (v === null) sv = 'null';
+      else if (typeof v === 'string') sv = '"' + v.replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"';
+      else if (typeof v === 'number') sv = String(v);
+      else if (typeof v === 'boolean') sv = v ? 'true' : 'false';
+      else if (typeof v === 'object') sv = stringifyJSON(v);
+      else continue;
+      parts.push('"' + k + '": ' + sv);
+    }
+    return '{\n  ' + parts.join(',\n  ') + '\n}';
+  }
+
+  function loadSettings() {
+    var s = {
+      city: null, lat: 0, lng: 0, method: 'Tehran', asr: 'Standard',
+      reciterId: 'Moazzen-Zadeh', volume: 1.0, adhanEnabled: true,
+      prayerEnabled: { fajr: true, sunrise: false, dhuhr: true, asr: true, maghrib: true, isha: true, midnight: false }
+    };
+    var raw = readText(SETTINGS_FILE);
+    if (raw) {
+      var p = parseJSON(raw);
+      if (p) for (var k in p) s[k] = p[k];
+    }
+    return s;
+  }
+
+  function onload() {
+    window.resizeTo(520, 720);
+    var s = loadSettings();
+
+    // City dropdown
+    var citySel = document.getElementById('city');
+    var opt = document.createElement('option');
+    opt.value = ''; opt.text = '(auto-detect via IP)';
+    citySel.add(opt);
+    for (var i = 0; i < CITIES.length; i++) {
+      var o = document.createElement('option');
+      o.value = CITIES[i][0];
+      o.text = CITIES[i][0] + ' - ' + CITIES[i][1];
+      citySel.add(o);
+    }
+    citySel.value = s.city || '';
+
+    // Method
+    var methodSel = document.getElementById('method');
+    for (var mi = 0; mi < METHODS.length; mi++) {
+      var mo = document.createElement('option');
+      mo.value = METHODS[mi]; mo.text = METHODS[mi];
+      methodSel.add(mo);
+    }
+    methodSel.value = s.method;
+
+    // Asr
+    var asrSel = document.getElementById('asr');
+    for (var ai = 0; ai < ASR.length; ai++) {
+      var ao = document.createElement('option');
+      ao.value = ASR[ai]; ao.text = ASR[ai];
+      asrSel.add(ao);
+    }
+    asrSel.value = s.asr;
+
+    // Reciter
+    var recSel = document.getElementById('reciter');
+    for (var ri = 0; ri < RECITERS.length; ri++) {
+      var ro = document.createElement('option');
+      ro.value = RECITERS[ri][0]; ro.text = RECITERS[ri][1];
+      recSel.add(ro);
+    }
+    recSel.value = s.reciterId;
+
+    // Volume
+    var vol = document.getElementById('volume');
+    vol.value = Math.round(s.volume * 100);
+    document.getElementById('volLabel').innerText = Math.round(s.volume * 100) + '%';
+
+    // Prayers
+    for (var pi = 0; pi < PRAYERS.length; pi++) {
+      var cb = document.getElementById('p_' + PRAYERS[pi]);
+      cb.checked = s.prayerEnabled[PRAYERS[pi]] === true;
+    }
+
+    // Master adhan toggle
+    document.getElementById('adhanEnabled').checked = s.adhanEnabled === true;
+
+    // Status
+    if (s.city) {
+      document.getElementById('curLoc').innerText = 'Current: ' + s.city + ' (' + s.lat + ', ' + s.lng + ')';
+    } else {
+      document.getElementById('curLoc').innerText = 'Current: auto-detect via IP';
+    }
+  }
+
+  function onVol() {
+    document.getElementById('volLabel').innerText = document.getElementById('volume').value + '%';
+  }
+
+  function save() {
+    var s = loadSettings(); // preserve lat/lng if city unchanged
+    var citySel = document.getElementById('city').value;
+    if (citySel === '') {
+      s.city = null; s.lat = 0; s.lng = 0; // re-trigger IP detect
+    } else {
+      // find city
+      for (var i = 0; i < CITIES.length; i++) {
+        if (CITIES[i][0] === citySel) {
+          s.city = CITIES[i][0]; s.lat = CITIES[i][2]; s.lng = CITIES[i][3];
+          break;
+        }
+      }
+    }
+    s.method = document.getElementById('method').value;
+    s.asr = document.getElementById('asr').value;
+    s.reciterId = document.getElementById('reciter').value;
+    s.volume = parseInt(document.getElementById('volume').value, 10) / 100;
+    s.adhanEnabled = document.getElementById('adhanEnabled').checked;
+    for (var pi = 0; pi < PRAYERS.length; pi++) {
+      s.prayerEnabled[PRAYERS[pi]] = document.getElementById('p_' + PRAYERS[pi]).checked;
+    }
+    try {
+      writeText(SETTINGS_FILE, stringifyJSON(s));
+      showStatus('Settings saved. The background runner will pick them up within 30 seconds.', 'ok');
+    } catch (e) {
+      showStatus('Save failed: ' + e.message, 'err');
+    }
+  }
+
+  function showStatus(msg, cls) {
+    var el = document.getElementById('status');
+    el.innerText = msg;
+    el.className = 'status ' + cls;
+  }
+
+  function closeWin() { window.close(); }
+</script>
+</head>
+<body onload="onload()">
+  <h1>Shia Azan</h1>
+  <div class="sub">Background adhan settings &middot; saved to %APPDATA%\ShiaAzan\settings.json</div>
+
+  <div id="curLoc" style="font-size:12px;color:#a5d6a7;margin-bottom:8px;"></div>
+
+  <label for="city">City</label>
+  <select id="city"></select>
+
+  <div class="row">
+    <div>
+      <label for="method">Calculation method</label>
+      <select id="method"></select>
+    </div>
+    <div>
+      <label for="asr">Asr factor</label>
+      <select id="asr"></select>
+    </div>
+  </div>
+
+  <label for="reciter">Reciter</label>
+  <select id="reciter"></select>
+
+  <label for="volume">Volume: <span id="volLabel">100%</span></label>
+  <input type="range" id="volume" min="0" max="100" step="5" oninput="onVol()">
+
+  <h2>Prayers</h2>
+  <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+    <input type="checkbox" id="adhanEnabled" style="width:auto;"> <span>Adhan enabled (master switch)</span>
+  </label>
+  <div class="prayers">
+    <div class="prayer"><input type="checkbox" id="p_fajr"><label for="p_fajr">Fajr</label></div>
+    <div class="prayer"><input type="checkbox" id="p_sunrise"><label for="p_sunrise">Sunrise</label></div>
+    <div class="prayer"><input type="checkbox" id="p_dhuhr"><label for="p_dhuhr">Dhuhr</label></div>
+    <div class="prayer"><input type="checkbox" id="p_asr"><label for="p_asr">Asr</label></div>
+    <div class="prayer"><input type="checkbox" id="p_maghrib"><label for="p_maghrib">Maghrib</label></div>
+    <div class="prayer"><input type="checkbox" id="p_isha"><label for="p_isha">Isha</label></div>
+    <div class="prayer"><input type="checkbox" id="p_midnight"><label for="p_midnight">Midnight</label></div>
+  </div>
+
+  <div class="buttons">
+    <button class="cancel" onclick="closeWin()">Cancel</button>
+    <button class="save" onclick="save()">Save</button>
+  </div>
+
+  <div id="status" class="status"></div>
+</body>
+</html>

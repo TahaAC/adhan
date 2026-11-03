@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  shia-azan-bg.wsf - Shia Azan background adhan runner for Windows.
+
+  Runs invisibly via wscript.exe. At each enabled prayer time, it
+  calls notify-and-play.ps1 to show a toast notification and play
+  the adhan MP3 through the speakers. Auto-starts at logon via a
+  shortcut in the Startup folder (created by the installer).
+
+  Settings live in %APPDATA%\ShiaAzan\settings.json. Edit that file
+  to change city, method, reciter, volume, or which prayers are
+  enabled. The runner re-reads it daily (and on first launch).
+-->
+<package>
+  <job id="ShiaAzanBg">
+    <runtime>
+      <description>Shia Azan background adhan runner. Plays the adhan at each prayer time.</description>
+    </runtime>
+
+    <script language="JScript" src="praytime-jscript.js"/>
+
+    <script language="JScript"><![CDATA[
+      var SHELL = new ActiveXObject("WScript.Shell");
+      var FSO   = new ActiveXObject("Scripting.FileSystemObject");
+
+      var APPDATA     = SHELL.ExpandEnvironmentStrings("%APPDATA%");
+      var LOCALAPPDATA= SHELL.ExpandEnvironmentStrings("%LOCALAPPDATA%");
+      var SETTINGS_DIR  = APPDATA + "\\ShiaAzan";
+      var SETTINGS_FILE = SETTINGS_DIR + "\\settings.json";
+      var SCRIPT_DIR    = LOCALAPPDATA + "\\ShiaAzan\\bg";
+      var NOTIFY_PS     = SCRIPT_DIR + "\\notify-and-play.ps1";
+
+      var RECITERS = [
+        ['Moazzen-Zadeh', 'Moazzen Zadeh'],
+        ['Aghati', 'Aghati'],
+        ['Ghalwash', 'Ghalwash'],
+        ['Kazem-Zadeh', 'Kazem Zadeh'],
+        ['Mohammad-Zadeh', 'Mohammad Zadeh'],
+        ['Rezaeian', 'Rezaeian'],
+        ['Rowhani-Nejad', 'Rowhani Nejad'],
+        ['Salimi', 'Salimi'],
+        ['Sharif', 'Sharif'],
+        ['Sobhdel', 'Sobhdel'],
+        ['Tasvieh-Chi', 'Tasviyechi'],
+        ['Tookhi', 'Tookhi']
+      ];
+
+      // Preset cities (same list as the TV page)
+      var CITIES = [
+        ['Najaf', 'Iraq', 32.0, 44.3333],
+        ['Karbala', 'Iraq', 32.616, 44.0249],
+        ['Baghdad', 'Iraq', 33.3152, 44.3661],
+        ['Kazimayn', 'Iraq', 33.379, 44.3359],
+        ['Samarra', 'Iraq', 34.198, 43.876],
+        ['Kufa', 'Iraq', 32.0, 44.4],
+        ['Basra', 'Iraq', 30.5085, 47.7804],
+        ['Tehran', 'Iran', 35.7, 51.4],
+        ['Mashhad', 'Iran', 36.3, 59.6],
+        ['Qom', 'Iran', 34.64, 50.88],
+        ['Shiraz', 'Iran', 29.59, 52.58],
+        ['Isfahan', 'Iran', 32.65, 51.67],
+        ['Karbala-Iran', 'Iran', 32.616, 44.0249],
+        ['Beirut', 'Lebanon', 33.89, 35.50],
+        ['Damascus', 'Syria', 33.51, 36.29],
+        ['Mecca', 'Saudi Arabia', 21.39, 39.86],
+        ['Medina', 'Saudi Arabia', 24.47, 39.61],
+        ['Jerusalem', 'Palestine', 31.78, 35.22],
+        ['Kuwait City', 'Kuwait', 29.37, 47.97],
+        ['Manama', 'Bahrain', 26.23, 50.58],
+        ['Doha', 'Qatar', 25.29, 51.50],
+        ['Dubai', 'UAE', 25.27, 55.30],
+        ['Muscat', 'Oman', 23.59, 58.38],
+        ['Sanaa', 'Yemen', 15.35, 44.20],
+        ['London', 'UK', 51.50, -0.13],
+        ['New York', 'USA', 40.71, -74.01],
+        ['Toronto', 'Canada', 43.65, -79.38],
+        ['Sydney', 'Australia', -33.87, 151.21],
+        ['Detroit', 'USA', 42.33, -83.05],
+        ['Dearborn', 'USA', 42.32, -83.21],
+        ['Los Angeles', 'USA', 34.05, -118.24],
+        ['Chicago', 'USA', 41.88, -87.63],
+        ['Houston', 'USA', 29.76, -95.37],
+        ['Berlin', 'Germany', 52.52, 13.40],
+        ['Paris', 'France', 48.85, 2.35],
+        ['Istanbul', 'Turkey', 41.01, 28.98]
+      ];
+
+      // ---------- settings ----------
+      function defaultSettings() {
+        return {
+          city: null,
+          lat: 0,
+          lng: 0,
+          method: 'Tehran',
+          asr: 'Standard',
+          reciterId: 'Moazzen-Zadeh',
+          volume: 1.0,
+          adhanEnabled: true,
+          prayerEnabled: {
+            fajr: true, sunrise: false, dhuhr: true,
+            asr: true, maghrib: true, isha: true, midnight: false
+          }
+        };
+      }
+
+      function readText(path) {
+        if (!FSO.FileExists(path)) return null;
+        try {
+          var f = FSO.OpenTextFile(path, 1, false, -1); // -1 = TristateUseDefault (auto UTF-16/UTF-8)
+          var s = f.ReadAll();
+          f.Close();
+          return s;
+        } catch (e) {
+          try {
+            var f2 = FSO.OpenTextFile(path, 1, false, 0); // 0 = ASCII
+            var s2 = f2.ReadAll();
+            f2.Close();
+            return s2;
+          } catch (e2) { return null; }
+        }
+      }
+
+      function writeText(path, s) {
+        var dir = FSO.GetParentFolderName(path);
+        if (!FSO.FolderExists(dir)) FSO.CreateFolder(dir);
+        var f = FSO.CreateTextFile(path, true, true); // true = overwrite, true = UTF-16
+        f.Write(s);
+        f.Close();
+      }
+
+      // Minimal JSON parser/serialiser (JScript has no JSON object).
+      // For our flat settings object this is enough; falls back to a
+      // hand-written serialiser and eval() for parsing.
+      function parseJSON(s) {
+        try { return eval('(' + s + ')'); }
+        catch (e) { return null; }
+      }
+
+      function stringifyJSON(o) {
+        var parts = [];
+        var k;
+        for (k in o) {
+          var v = o[k];
+          var sv;
+          if (v === null) sv = 'null';
+          else if (typeof v === 'string') sv = '"' + v.replace(/\\/g,'\\\\').replace(/"/g,'\\"') + '"';
+          else if (typeof v === 'number') sv = String(v);
+          else if (typeof v === 'boolean') sv = v ? 'true' : 'false';
+          else if (typeof v === 'object') sv = stringifyJSON(v);
+          else continue;
+          parts.push('"' + k + '": ' + sv);
+        }
+        return '{\n  ' + parts.join(',\n  ') + '\n}';
+      }
+
+      function loadSettings() {
+        var s = defaultSettings();
+        var raw = readText(SETTINGS_FILE);
+        if (raw) {
+          var parsed = parseJSON(raw);
+          if (parsed) {
+            for (var k in parsed) s[k] = parsed[k];
+            // Merge prayerEnabled (so new keys added in defaults are kept)
+            if (parsed.prayerEnabled) {
+              for (var p in defaultSettings().prayerEnabled) {
+                if (typeof parsed.prayerEnabled[p] !== 'undefined')
+                  s.prayerEnabled[p] = parsed.prayerEnabled[p];
+              }
+            }
+          }
+        }
+        return s;
+      }
+
+      function saveSettings(s) {
+        try { writeText(SETTINGS_FILE, stringifyJSON(s)); } catch (e) {}
+      }
+
+      // ---------- HTTP ----------
+      function httpGet(url) {
+        // MSXML2.ServerXMLHTTP is more reliable across Windows versions
+        // than WinHttp.WinHttpRequest, and handles redirects.
+        var req = new ActiveXObject("MSXML2.ServerXMLHTTP.6.0");
+        req.open("GET", url, false); // synchronous
+        req.setTimeouts(8000, 8000, 8000, 8000);
+        try {
+          req.send();
+          if (req.status === 200) return req.responseText;
+        } catch (e) {}
+        return null;
+      }
+
+      // ---------- IP-based city auto-detect ----------
+      function detectCity() {
+        // ip-api.com returns lat/lng/city/timezone from the IP. Free,
+        // no key, 45 req/min limit. We call it once on first run.
+        var body = httpGet("http://ip-api.com/json/?fields=status,lat,lon,city,timezone");
+        if (!body) return null;
+        var d = parseJSON(body);
+        if (!d || d.status !== 'success') return null;
+        return { city: d.city, lat: d.lat, lng: d.lon, timezone: d.timezone };
+      }
+
+      // ---------- adhan playback + notification ----------
+      function reciterUrl(reciterId) {
+        return "https://praytimes.org/audio/shia/" + reciterId + ".mp3";
+      }
+
+      function playAdhan(prayer, reciterId, volume) {
+        if (!FSO.FileExists(NOTIFY_PS)) {
+          log("notify-and-play.ps1 not found at " + NOTIFY_PS);
+          return;
+        }
+        var url = reciterUrl(reciterId);
+        var volPct = Math.round(Math.max(0, Math.min(1, volume)) * 100);
+        // Run PowerShell hidden, wait for it to finish (true = wait).
+        // This blocks the loop until the adhan finishes, which is fine —
+        // two prayers never fire at the same time.
+        var cmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden '
+                + '-File "' + NOTIFY_PS + '" '
+                + '-Prayer "' + prayer + '" '
+                + '-ReciterUrl "' + url + '" '
+                + '-Volume ' + volPct;
+        try {
+          SHELL.Run(cmd, 0, true);
+        } catch (e) {
+          log("PowerShell launch failed: " + e.message);
+        }
+      }
+
+      // ---------- logging ----------
+      function log(msg) {
+        try {
+          var line = new Date().toISOString() + "  " + msg + "\r\n";
+          var logPath = SETTINGS_DIR + "\\bg.log";
+          var f = FSO.OpenTextFile(logPath, 8, true, -1); // 8 = ForAppending
+          f.Write(line);
+          f.Close();
+        } catch (e) {}
+      }
+
+      // ---------- main ----------
+      function isPrayerEnabled(s, name) {
+        return s.adhanEnabled && s.prayerEnabled[name] === true;
+      }
+
+      function computeTimesForToday(s) {
+        var pt = new PrayTime(s.method);
+        pt.location([s.lat, s.lng]);
+        pt.format('X'); // epoch seconds
+        pt.set({ asr: s.asr });
+        var t = pt.getTimes(0); // 0 = today
+        // Convert epoch seconds -> epoch millis
+        var out = {};
+        for (var k in t) out[k] = parseInt(t[k], 10) * 1000;
+        return out;
+      }
+
+      function nextPrayer(s, now) {
+        var times = computeTimesForToday(s);
+        var best = null, bestT = Infinity;
+        for (var k in times) {
+          if (!isPrayerEnabled(s, k)) continue;
+          if (times[k] > now && times[k] < bestT) {
+            bestT = times[k];
+            best = k;
+          }
+        }
+        // If none today, wrap to tomorrow's first enabled prayer.
+        if (best === null) {
+          var tomorrow = new Date(now + 86400000);
+          var pt = new PrayTime(s.method);
+          pt.location([s.lat, s.lng]);
+          pt.format('X');
+          pt.set({ asr: s.asr });
+          // Compute for tomorrow by passing a Date
+          var t2 = pt.getTimes(tomorrow);
+          for (var k2 in t2) {
+            if (!isPrayerEnabled(s, k2)) continue;
+            var v2 = parseInt(t2[k2], 10) * 1000;
+            if (v2 > now && v2 < bestT) { bestT = v2; best = k2; }
+          }
+        }
+        return best ? { prayer: best, time: bestT } : null;
+      }
+
+      function main() {
+        log("Shia Azan background runner starting.");
+        var s = loadSettings();
+
+        // First run: auto-detect city via IP
+        if (!s.city || (s.lat === 0 && s.lng === 0)) {
+          log("No city set; auto-detecting via IP...");
+          var det = detectCity();
+          if (det) {
+            s.city = det.city;
+            s.lat = det.lat;
+            s.lng = det.lng;
+            saveSettings(s);
+            log("Detected city: " + det.city + " (" + det.lat + ", " + det.lng + ")");
+          } else {
+            log("IP detect failed; will retry later.");
+          }
+        }
+
+        // Main loop: forever
+        var lastDay = -1;
+        while (true) {
+          // Reload settings once a day (so user edits take effect)
+          var now = new Date();
+          var day = now.getFullYear() * 10000 + (now.getMonth()+1)*100 + now.getDate();
+          if (day !== lastDay) {
+            s = loadSettings();
+            lastDay = day;
+            log("Settings reloaded. method=" + s.method + " city=" + s.city +
+                " lat=" + s.lat + " lng=" + s.lng);
+          }
+
+          if (s.lat === 0 && s.lng === 0) {
+            // No location yet — retry detection every 10 min
+            WScript.Sleep(600000);
+            var det2 = detectCity();
+            if (det2) {
+              s.city = det2.city; s.lat = det2.lat; s.lng = det2.lng;
+              saveSettings(s);
+              log("Detected city (retry): " + det2.city);
+            }
+            continue;
+          }
+
+          var np = nextPrayer(s, now.getTime());
+          if (!np) {
+            // No prayers enabled — sleep 1 hour and retry
+            WScript.Sleep(3600000);
+            continue;
+          }
+
+          var msToNext = np.time - now.getTime();
+          if (msToNext > 0) {
+            // Sleep in 30-second chunks so we can detect shutdown /
+            // settings changes. WScript.Sleep is interruptible by
+            // wscript.exe termination.
+            var chunkMs = 30000;
+            while (msToNext > chunkMs) {
+              WScript.Sleep(chunkMs);
+              // Re-check: did the next prayer time change (e.g. user
+              // toggled a prayer, or crossed midnight)?
+              var now2 = new Date();
+              var np2 = nextPrayer(s, now2.getTime());
+              if (!np2 || np2.prayer !== np.prayer || Math.abs(np2.time - np.time) > 60000) {
+                msToNext = -1; // force recompute
+                break;
+              }
+              msToNext = np.time - now2.getTime();
+            }
+            if (msToNext > 0) WScript.Sleep(msToNext);
+          }
+
+          // Fire adhan (re-read settings so volume/reciter are current)
+          s = loadSettings();
+          if (isPrayerEnabled(s, np.prayer)) {
+            log("Firing adhan: " + np.prayer);
+            playAdhan(np.prayer, s.reciterId, s.volume);
+          }
+
+          // Small pause so we don't re-fire the same prayer
+          WScript.Sleep(10000);
+        }
+      }
+
+      main();
+    ]]></script>
+  </job>
+</package>

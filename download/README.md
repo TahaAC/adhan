@@ -5,11 +5,13 @@ app on your device, browser, or TV.
 
 ## 1. Windows Installer (Recommended for PC)
 
-**File:** `ShiaAzan-Windows-Installer.zip`
+**File:** `ShiaAzan-Windows-Installer.zip` (v1.1.0)
 
 A complete Windows installer that installs Shia Azan as a standalone
 desktop application with Start Menu and Desktop shortcuts, an uninstaller,
-and registration in "Add/Remove Programs".
+registration in "Add/Remove Programs", and **a background adhan service
+that runs at every prayer time even when the app is closed or the
+computer was rebooted**.
 
 ### Quick Install
 
@@ -17,12 +19,38 @@ and registration in "Add/Remove Programs".
 2. **Extract** the ZIP file to a folder on your computer
 3. **Double-click** `install-shia-azan.bat`
 4. **Press any key** when prompted to begin installation
-5. The app launches automatically when done
+5. The app launches automatically and the background adhan service
+   starts immediately (hidden, in the background)
 
-After installation, find the app in:
-- Desktop shortcut: "Shia Azan"
-- Start Menu: search "Shia Azan"
+After installation, find:
+- Desktop shortcut: "Shia Azan" — opens the full PWA app
+- Start Menu: "Shia Azan" — same as above
+- Start Menu: "Shia Azan Settings" — configure the background adhan
+  (city, method, reciter, volume, which prayers are enabled)
 - Settings > Apps > Installed apps (for uninstall)
+
+### Background adhan (new in v1.1.0)
+
+The installer sets up a standalone background runner (`shia-azan-bg.wsf`,
+runs via `wscript.exe`) that:
+
+- **Auto-starts at Windows logon** via a Startup folder shortcut
+- **Runs invisibly** (no window, no taskbar icon)
+- **Computes prayer times itself** using a JScript port of PrayTime.js
+  — verified against 1,386 prayer-time combinations
+- **At each enabled prayer time**, shows a Windows toast notification
+  AND plays the adhan MP3 through the speakers
+- **Survives reboots** — the Startup shortcut relaunches it at logon
+- **Auto-detects your city** via IP on first run
+
+You do NOT need to keep the app or your browser open. The background
+runner is a separate process that runs independently.
+
+To configure: Start Menu ▸ **Shia Azan Settings** (a small HTA window).
+Changes are saved to `%APPDATA%\ShiaAzan\settings.json` and picked up
+within 30 seconds.
+
+To check the log: `%APPDATA%\ShiaAzan\bg.log`
 
 ### What's Included
 
@@ -30,9 +58,14 @@ After installation, find the app in:
 |------|-------------|
 | `install-shia-azan.bat` | Quick installer — double-click to run |
 | `uninstall.bat` | Uninstaller — double-click to remove |
-| `launch.vbs` | Silent launcher used by shortcuts |
+| `launch.vbs` | Silent launcher used by app shortcuts |
 | `ShiaAzan-Installer.iss` | Inno Setup script to build a proper .exe |
 | `icons\shia-azan.ico` | Multi-resolution Windows icon (16–256px) |
+| `bg\shia-azan-bg.wsf` | **Background adhan runner** (WSH/JScript) |
+| `bg\praytime-jscript.js` | JScript port of PrayTime.js |
+| `bg\notify-and-play.ps1` | Toast + audio playback helper (PowerShell) |
+| `bg\config.hta` | Settings UI (HTML Application) |
+| `bg\settings-default.json` | Default settings template |
 | `README.txt` | Detailed installation instructions |
 
 ### Building a Professional .exe Installer (Optional)
@@ -44,14 +77,17 @@ batch script:
 2. Open `ShiaAzan-Installer.iss` in Inno Setup Studio
 3. Press **Ctrl+F9** to compile
 4. The installer will be in the `Output\` folder as
-   `ShiaAzan-Setup-1.0.0.exe`
+   `ShiaAzan-Setup-1.1.0.exe`
 5. Distribute that .exe — users just double-click to install
 
 ### Requirements
 
 - Windows 10 or Windows 11
 - Microsoft Edge (included with Windows) OR Google Chrome
-- ~5 MB free disk space
+  (only needed for the full PWA app, not the background adhan)
+- .NET Framework 4+ (pre-installed on Windows 10+) — used by the
+  background adhan's audio playback
+- ~10 MB free disk space
 
 ---
 

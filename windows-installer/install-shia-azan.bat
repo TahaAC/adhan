@@ -23,9 +23,12 @@ set "APP_NAME=Shia Azan"
 set "APP_DESC=Shia Prayer Times and Adhan"
 set "INSTALL_DIR=%LOCALAPPDATA%\ShiaAzan"
 set "ICON_DIR=%INSTALL_DIR%\icons"
+set "BG_DIR=%INSTALL_DIR%\bg"
+set "SETTINGS_DIR=%APPDATA%\ShiaAzan"
 set "START_MENU_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Shia Azan"
+set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "DESKTOPShortcut=%USERPROFILE%\Desktop\Shia Azan.lnk"
-set "VERSION=1.0.0"
+set "VERSION=1.1.0"
 
 :: Detect the best available browser (Edge first, then Chrome)
 set "BROWSER="
@@ -85,9 +88,10 @@ echo.
 echo   This installer will:
 echo     1. Create the installation directory
 echo     2. Copy app icons
-echo     3. Create Start Menu shortcut
-echo     4. Create Desktop shortcut
-echo     5. Create uninstaller
+echo     3. Install the background adhan service (runs at startup)
+echo     4. Create Start Menu shortcut
+echo     5. Create Desktop shortcut
+echo     6. Create uninstaller
 echo.
 echo   Press any key to install, or CTRL+C to cancel.
 echo.
@@ -97,9 +101,11 @@ echo.
 echo  Installing...
 
 :: Step 1: Create installation directory
-echo   [1/5] Creating installation directory...
+echo   [1/6] Creating installation directory...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 if not exist "%ICON_DIR%" mkdir "%ICON_DIR%"
+if not exist "%BG_DIR%" mkdir "%BG_DIR%"
+if not exist "%SETTINGS_DIR%" mkdir "%SETTINGS_DIR%"
 if errorlevel 1 (
     echo   [ERROR] Could not create installation directory.
     pause
@@ -107,7 +113,7 @@ if errorlevel 1 (
 )
 
 :: Step 2: Copy icons
-echo   [2/5] Copying app icons...
+echo   [2/6] Copying app icons...
 :: Icons are in the same folder as this installer
 set "SCRIPT_DIR=%~dp0"
 if exist "%SCRIPT_DIR%icons\shia-azan.ico" (
@@ -116,8 +122,38 @@ if exist "%SCRIPT_DIR%icons\shia-azan.ico" (
     echo   [WARNING] Icon file not found. Shortcuts will use browser icon.
 )
 
-:: Step 3: Create launcher script (hidden VBScript that runs the browser)
-echo   [3/5] Creating launcher...
+:: Step 3: Install background adhan service
+echo   [3/6] Installing background adhan service...
+if exist "%SCRIPT_DIR%bg\shia-azan-bg.wsf" (
+    copy /y "%SCRIPT_DIR%bg\shia-azan-bg.wsf" "%BG_DIR%\shia-azan-bg.wsf" >nul
+    copy /y "%SCRIPT_DIR%bg\praytime-jscript.js" "%BG_DIR%\praytime-jscript.js" >nul
+    copy /y "%SCRIPT_DIR%bg\notify-and-play.ps1" "%BG_DIR%\notify-and-play.ps1" >nul
+    copy /y "%SCRIPT_DIR%bg\config.hta" "%BG_DIR%\config.hta" >nul
+    :: Create default settings.json if it does not exist (preserve existing)
+    if not exist "%SETTINGS_DIR%\settings.json" (
+        copy /y "%SCRIPT_DIR%bg\settings-default.json" "%SETTINGS_DIR%\settings.json" >nul
+    )
+    :: Stop any running instance of the background runner
+    taskkill /f /im wscript.exe /fi "WINDOWTITLE eq Shia Azan*" >nul 2>&1
+    :: Create Startup shortcut so it auto-runs at every logon
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$ws = New-Object -ComObject WScript.Shell; " ^
+        "$sc = $ws.CreateShortcut('%STARTUP_DIR%\Shia Azan Adhan.lnk'); " ^
+        "$sc.TargetPath = 'wscript.exe'; " ^
+        "$sc.Arguments = '\"%BG_DIR%\shia-azan-bg.wsf\"'; " ^
+        "$sc.IconLocation = '%ICON_DIR%\shia-azan.ico, 0'; " ^
+        "$sc.Description = 'Shia Azan background adhan'; " ^
+        "$sc.WorkingDirectory = '%BG_DIR%'; " ^
+        "$sc.WindowStyle = 7; " ^
+        "$sc.Save()"
+    :: Start the background runner now (hidden)
+    start "" /b wscript.exe "%BG_DIR%\shia-azan-bg.wsf"
+) else (
+    echo   [WARNING] Background service files not found. Skipping.
+)
+
+:: Step 4: Create launcher script (hidden VBScript that runs the browser)
+echo   [4/6] Creating launcher...
 set "LAUNCHER=%INSTALL_DIR%\launch.vbs"
 (
     echo ' Shia Azan - Silent launcher
@@ -131,8 +167,8 @@ set "LAUNCHER=%INSTALL_DIR%\launch.vbs"
     echo Set shell = Nothing
 ) > "%LAUNCHER%"
 
-:: Step 4: Create Start Menu shortcut
-echo   [4/5] Creating Start Menu shortcut...
+:: Step 5: Create Start Menu shortcut
+echo   [5/6] Creating Start Menu shortcut...
 if not exist "%START_MENU_DIR%" mkdir "%START_MENU_DIR%"
 
 set "START_SHORTCUT=%START_MENU_DIR%\Shia Azan.lnk"
@@ -150,8 +186,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 :: Also create a folder shortcut for the Start Menu folder itself
 set "FOLDER_SHORTCUT=%START_MENU_DIR%\Uninstall Shia Azan.lnk"
 
-:: Step 5: Create Desktop shortcut
-echo   [5/5] Creating Desktop shortcut...
+:: Step 6: Create Desktop shortcut
+echo   [6/6] Creating Desktop shortcut...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$ws = New-Object -ComObject WScript.Shell; " ^
     "$sc = $ws.CreateShortcut('%DESKTOPShortcut%'); " ^
@@ -173,7 +209,10 @@ set "UNINSTALLER=%INSTALL_DIR%\uninstall.bat"
     echo echo.
     echo echo  Uninstalling Shia Azan...
     echo echo.
+    echo echo   Stopping background adhan...
+    echo taskkill /f /im wscript.exe /fi "WINDOWTITLE eq Shia Azan*" ^>nul 2^>^&1
     echo echo   Removing shortcuts...
+    echo if exist "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Shia Azan Adhan.lnk" del /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Shia Azan Adhan.lnk"
     echo if exist "%DESKTOPShortcut%" del /q "%DESKTOPShortcut%"
     echo if exist "%START_MENU_DIR%" rmdir /s /q "%START_MENU_DIR%"
     echo echo   Removing installation files...
@@ -191,6 +230,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$sc.TargetPath = '%UNINSTALLER%'; " ^
     "$sc.IconLocation = 'shell32.dll, 131'; " ^
     "$sc.Description = 'Uninstall Shia Azan'; " ^
+    "$sc.Save()"
+
+:: Create Settings shortcut in Start Menu (opens the config HTA)
+set "SETTINGS_SHORTCUT=%START_MENU_DIR%\Shia Azan Settings.lnk"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ws = New-Object -ComObject WScript.Shell; " ^
+    "$sc = $ws.CreateShortcut('%SETTINGS_SHORTCUT%'); " ^
+    "$sc.TargetPath = 'mshta.exe'; " ^
+    "$sc.Arguments = '""%BG_DIR%\config.hta""'; " ^
+    "$sc.IconLocation = '%ICON_DIR%\shia-azan.ico, 0'; " ^
+    "$sc.Description = 'Configure Shia Azan background adhan'; " ^
+    "$sc.WorkingDirectory = '%BG_DIR%'; " ^
     "$sc.Save()"
 
 :: Create a registry entry for "Add/Remove Programs"
@@ -213,7 +264,15 @@ echo  ============================================================
 echo.
 echo   Shia Azan has been installed successfully.
 echo.
-echo   You can now launch it from:
+echo   Background adhan service ^(NEW^):
+echo     - Runs automatically at Windows startup
+echo     - Plays the adhan at each prayer time even when the
+echo       app is closed or after a reboot
+echo     - Default: Tehran method, city auto-detected via IP
+echo     - Change settings: Start Menu ^> "Shia Azan Settings"
+echo     - Log file: %%APPDATA%%\ShiaAzan\bg.log
+echo.
+echo   You can now launch the full app from:
 echo     - Desktop shortcut: "Shia Azan"
 echo     - Start Menu: "Shia Azan"
 echo.
@@ -222,13 +281,14 @@ echo     - Use "Add/Remove Programs" in Settings, OR
 echo     - Run: %UNINSTALLER%
 echo.
 echo   ------------------------------------------------------------
-echo   IMPORTANT: First launch instructions
+echo   First launch
 echo   ------------------------------------------------------------
 echo   1. The app will open in %BROWSER_NAME% app mode
 echo   2. Click "Enable" on the yellow notification bar
 echo   3. Allow notifications when prompted
-echo   4. Click "Test notification" to verify it works
-echo   5. Keep the app open ^(minimized is OK^) for background adhan
+echo   4. The background adhan is already running — open
+echo      "Shia Azan Settings" in the Start Menu to configure
+echo      your city, reciter, and which prayers are enabled.
 echo.
 echo   Press any key to launch Shia Azan now...
 pause >nul

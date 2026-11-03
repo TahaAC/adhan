@@ -1,0 +1,19 @@
+{
+  "city": null,
+  "lat": 0,
+  "lng": 0,
+  "method": "Tehran",
+  "asr": "Standard",
+  "reciterId": "Moazzen-Zadeh",
+  "volume": 1.0,
+  "adhanEnabled": true,
+  "prayerEnabled": {
+    "fajr": true,
+    "sunrise": false,
+    "dhuhr": true,
+    "asr": true,
+    "maghrib": true,
+    "isha": true,
+    "midnight": false
+  }
+}

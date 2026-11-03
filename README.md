@@ -41,7 +41,7 @@ renowned Shia reciters.
 | `src/` | **Web app / PWA** (Next.js 16 + React 19) | Deploy anywhere, then "Install app" from the browser |
 | `public/tv.html` | **TV web app** (self-contained, no server) | Open in any TV browser |
 | `browser-extension/` | **Chrome / Edge / Brave / Firefox** extension | Load unpacked |
-| `windows-installer/` | **Windows** desktop app | Run `install-shia-azan.bat` or build an .exe with Inno Setup |
+| `windows-installer/` | **Windows** desktop app + background adhan service | Run `install-shia-azan.bat` or build an .exe with Inno Setup |
 | `android-tv/` | **Android TV** app (leanback WebView + background adhan service, ~128 KB APK) | Sideload the APK — no Gradle build needed |
 | `apple-tv/` | **Apple TV** app (SwiftUI + WKWebView) | Open in Xcode, ⌘R |
 | `tv-app/` | Sources for the TV interface (part1 + praytime.js + part3) | — |
@@ -82,7 +82,8 @@ PrayTime that is verified against 1,386 prayer-time combinations).
 
 ```bash
 node scripts/test-tv-times.js        # TV page computation == main app's TS port
-node scripts/verify-praytime-port.js # Java PrayTime port == JS reference
+node scripts/verify-praytime-port.js # Java PrayTime port == JS reference (Android TV)
+node scripts/verify-praytime-jscript.js # JScript PrayTime port == JS reference (Windows bg)
 ```
 
 ## 🗺️ Roadmap ideas

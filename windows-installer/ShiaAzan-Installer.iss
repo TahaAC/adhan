@@ -8,7 +8,7 @@
 ; ============================================================；
 
 #define MyAppName "Shia Azan"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "Shia Azan"
 #define MyAppURL "https://praytimes.org"
 #define MyAppExeName "ShiaAzan.exe"
@@ -58,6 +58,13 @@ Source: "icons\shia-azan.png"; DestDir: "{app}\icons"; Flags: ignoreversion
 ; Launcher script
 Source: "launch.vbs"; DestDir: "{app}"; Flags: ignoreversion
 
+; Background adhan service
+Source: "bg\shia-azan-bg.wsf"; DestDir: "{app}\bg"; Flags: ignoreversion
+Source: "bg\praytime-jscript.js"; DestDir: "{app}\bg"; Flags: ignoreversion
+Source: "bg\notify-and-play.ps1"; DestDir: "{app}\bg"; Flags: ignoreversion
+Source: "bg\config.hta"; DestDir: "{app}\bg"; Flags: ignoreversion
+Source: "bg\settings-default.json"; DestDir: "{app}\bg"; Flags: ignoreversion onlyifdoesntexist
+
 ; Note: The installer generates launch.vbs during install via the
 ; [Run] section and [Code] section below, so the file above is a
 ; fallback. The [Code] section customizes the browser path.
@@ -65,14 +72,22 @@ Source: "launch.vbs"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
 ; Start Menu shortcut
 Name: "{group}\Shia Azan"; Filename: "wscript.exe"; Parameters: """{app}\launch.vbs"""; IconFilename: "{app}\icons\shia-azan.ico"; WorkingDir: "{app}"; Comment: "Shia Prayer Times and Adhan"
+Name: "{group}\Shia Azan Settings"; Filename: "mshta.exe"; Parameters: """{app}\bg\config.hta"""; IconFilename: "{app}\icons\shia-azan.ico"; WorkingDir: "{app}\bg"; Comment: "Configure background adhan"
 Name: "{group}\Uninstall Shia Azan"; Filename: "{uninstallexe}"; Comment: "Uninstall Shia Azan"
 
 ; Desktop shortcut (conditional on task)
 Name: "{commondesktop}\Shia Azan"; Filename: "wscript.exe"; Parameters: """{app}\launch.vbs"""; IconFilename: "{app}\icons\shia-azan.ico"; WorkingDir: "{app}"; Comment: "Shia Prayer Times and Adhan"; Tasks: desktopicon
 
+; Startup shortcut — auto-runs the background adhan at logon
+Name: "{userstartup}\Shia Azan Adhan"; Filename: "wscript.exe"; Parameters: """{app}\bg\shia-azan-bg.wsf"""; IconFilename: "{app}\icons\shia-azan.ico"; WorkingDir: "{app}\bg"; Comment: "Shia Azan background adhan"
+
 [Run]
 ; Launch the app after installation
 Filename: "wscript.exe"; Parameters: """{app}\launch.vbs"""; Description: "Launch Shia Azan"; Flags: nowait postinstall skipifsilent
+; Start the background adhan service now (hidden)
+Filename: "wscript.exe"; Parameters: """{app}\bg\shia-azan-bg.wsf"""; Flags: nowait runhidden
+; Create the user settings file from the default if it doesn't exist
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""if (-not (Test-Path '%APPDATA%\ShiaAzan\settings.json')) { New-Item -ItemType Directory -Force -Path '%APPDATA%\ShiaAzan' | Out-Null; Copy-Item '{app}\bg\settings-default.json' '%APPDATA%\ShiaAzan\settings.json' }"""; Flags: runhidden
 
 [Code]
 var
