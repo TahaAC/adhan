@@ -1,10 +1,14 @@
 // background.js - Service worker for the Shia Azan browser extension.
 //
-// Sets up periodic alarms to check for upcoming prayer times and fire
-// desktop notifications. Uses chrome.alarms (which survives service
-// worker shutdown) instead of setInterval (which doesn't).
+// Sets up periodic alarms to check for upcoming prayer times, then fires
+// a desktop notification AND plays the adhan audio immediately through a
+// hidden offscreen document (service workers can't play audio directly).
+// Uses chrome.alarms (which survives service worker shutdown) instead of
+// setInterval (which doesn't).
 
 const RECITER_BASE = 'https://praytimes.org/audio/shia/';
+const OFFSCREEN_URL = 'offscreen.html';
+let creatingOffscreen = null;
 
 const PRAYER_ARABIC = {
   Fajr: 'الفجر',
@@ -25,11 +29,33 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+// Popup -> test the background adhan path exactly as it fires live.
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || !msg.type) return;
+  if (msg.type === 'TEST_ADHAN') {
+    (async () => {
+      const { settings } = await chrome.storage.local.get('settings');
+      const s = settings || {};
+      await playAdhanAudio(s.reciterId || 'Moazzen-Zadeh', s.volume);
+      sendResponse({ ok: true });
+    })();
+    return true; // async sendResponse
+  }
+  if (msg.type === 'STOP_ADHAN') {
+    stopAdhanAudio();
+    sendResponse({ ok: true });
+  }
+  if (msg.type === 'ADHAN_ENDED') {
+    // Playback finished in the offscreen document; close it to free
+    // resources. Errors are ignored (document may already be gone).
+    closeOffscreenDocument();
+  }
+});
+
 async function checkAndNotify() {
   const { settings } = await chrome.storage.local.get('settings');
   if (!settings || !settings.notificationsEnabled) return;
   if (!settings.location) return;
-
   const now = Date.now();
   const today = computeSchedule(new Date(), settings);
   const tomorrow = computeSchedule(getTomorrow(), settings);
@@ -65,10 +91,12 @@ async function checkAndNotify() {
         priority: 2,
       });
 
-      // Optionally play the adhan audio via an offscreen document
-      // (service workers can't play audio directly). We skip this in
-      // the extension for simplicity — the notification + badge is
-      // sufficient. Users can click the popup to play the adhan.
+      // Play the adhan voice at the same time as the notification.
+      // Sound is played for the five salat times; sunrise and midnight
+      // stay notification-only. Controlled by the "Adhan sound" setting.
+      if (slot.isSalat && settings.soundEnabled !== false) {
+        playAdhanAudio(settings.reciterId, settings.volume);
+      }
     }
   }
 
@@ -101,6 +129,66 @@ function getTomorrow() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d;
+}
+
+// ---------- Background adhan audio (offscreen document) ----------
+//
+// MV3 service workers have no DOM, so audio is played by a hidden
+// offscreen document created with reason AUDIO_PLAYBACK — which is
+// exempt from autoplay restrictions (no user gesture needed).
+
+async function ensureOffscreenDocument() {
+  // Chrome 116+: query live contexts. Older Chrome: fall back to
+  // createDocument and swallow the "single offscreen document" error.
+  if (chrome.runtime.getContexts) {
+    const contexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT'],
+      documentUrls: [OFFSCREEN_URL],
+    });
+    if (contexts.length > 0) return;
+  }
+  if (creatingOffscreen) {
+    await creatingOffscreen;
+    return;
+  }
+  creatingOffscreen = chrome.offscreen.createDocument({
+    url: OFFSCREEN_URL,
+    reasons: [chrome.offscreen.Reason.AUDIO_PLAYBACK],
+    justification: 'Play the adhan at prayer time alongside the notification.',
+  });
+  try {
+    await creatingOffscreen;
+  } catch (e) {
+    // Already exists (race or older Chrome without getContexts).
+  } finally {
+    creatingOffscreen = null;
+  }
+}
+
+function closeOffscreenDocument() {
+  chrome.offscreen.closeDocument().catch(() => {});
+}
+
+async function playAdhanAudio(reciterId, volume) {
+  try {
+    const url = RECITER_BASE + (reciterId || 'Moazzen-Zadeh') + '.mp3';
+    const vol = typeof volume === 'number' ? Math.max(0, Math.min(100, volume)) / 100 : 1;
+    await ensureOffscreenDocument();
+    await chrome.runtime.sendMessage({
+      type: 'PLAY_ADHAN',
+      url,
+      volume: vol,
+    });
+  } catch (e) {
+    console.warn('background adhan failed:', e);
+  }
+}
+
+function stopAdhanAudio() {
+  chrome.runtime
+    .sendMessage({ type: 'STOP_ADHAN' })
+    .catch(() => {}) // offscreen document not open
+    .finally(() => closeOffscreenDocument());
 }
 
 function computeSchedule(date, settings) {

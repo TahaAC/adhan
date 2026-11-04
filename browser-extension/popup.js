@@ -50,6 +50,8 @@ const DEFAULT_SETTINGS = {
   timeFormat: '12h',
   reciterId: 'Moazzen-Zadeh',
   notificationsEnabled: true,
+  soundEnabled: true,
+  volume: 90,
   location: null,
 };
 
@@ -130,6 +132,32 @@ function fillSettingsUI() {
     if (e.target.checked) {
       chrome.permissions.request({ permissions: ['notifications'] }, () => {});
     }
+  });
+
+  const soundCheckbox = document.getElementById('sound-checkbox');
+  soundCheckbox.checked = settings.soundEnabled !== false;
+  soundCheckbox.addEventListener('change', async (e) => {
+    settings.soundEnabled = e.target.checked;
+    await saveSettings();
+  });
+
+  const volumeRange = document.getElementById('volume-range');
+  const volumeValue = document.getElementById('volume-value');
+  volumeRange.value = typeof settings.volume === 'number' ? settings.volume : 90;
+  volumeValue.textContent = volumeRange.value + '%';
+  volumeRange.addEventListener('input', async (e) => {
+    settings.volume = parseInt(e.target.value, 10);
+    volumeValue.textContent = settings.volume + '%';
+    await saveSettings();
+  });
+
+  // Test the background adhan exactly as it fires at prayer time
+  // (notification + offscreen audio via the service worker).
+  document.getElementById('test-adhan-btn').addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'TEST_ADHAN' });
+  });
+  document.getElementById('stop-adhan-btn').addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'STOP_ADHAN' });
   });
 
   document.getElementById('settings-btn').addEventListener('click', () => {

@@ -97,7 +97,10 @@ batch script:
 
 A compact browser extension that shows prayer times in a popup when you
 click the toolbar icon. Includes live countdown, today's schedule, Qibla
-direction, and desktop notifications.
+direction, desktop notifications, and — at each of the five prayer
+times — the **adhan voice plays automatically in the background**,
+together with the notification (toggleable, with volume control and a
+Test button in the extension's settings).
 
 ### Installation (Chrome / Edge / Brave)
 

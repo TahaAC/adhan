@@ -101,6 +101,24 @@
         <input type="checkbox" id="notif-checkbox" />
         <span>Desktop notifications</span>
       </label>
+      <label class="setting-row checkbox">
+        <input type="checkbox" id="sound-checkbox" />
+        <span>Play adhan sound at prayer time</span>
+      </label>
+      <div class="setting-row">
+        <span>Adhan volume</span>
+        <div class="volume-row">
+          <input type="range" id="volume-range" min="0" max="100" step="5" value="90" />
+          <span id="volume-value" class="volume-value">90%</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span>Test background adhan</span>
+        <div class="test-row">
+          <button id="test-adhan-btn" class="btn-small" title="Plays the adhan exactly as it will sound at prayer time">&#9654; Test</button>
+          <button id="stop-adhan-btn" class="btn-small btn-stop" title="Stop the test adhan">&#9632; Stop</button>
+        </div>
+      </div>
       <div class="settings-actions">
         <button id="open-full-app" class="btn-primary">Open Full App →</button>
       </div>

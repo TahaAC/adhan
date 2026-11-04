@@ -384,6 +384,57 @@ body {
   background: #1a6b4f;
 }
 
+/* Adhan sound settings */
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.volume-row input[type='range'] {
+  width: 80px;
+  height: 4px;
+  accent-color: #0b3d2e;
+  cursor: pointer;
+}
+
+.volume-value {
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 30px;
+  text-align: right;
+}
+
+.test-row {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-small {
+  padding: 4px 10px;
+  background: #0b3d2e;
+  color: #d4a017;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-small:hover {
+  background: #1a6b4f;
+}
+
+.btn-small.btn-stop {
+  background: #8b1a1a;
+  color: #f5e6c8;
+}
+
+.btn-small.btn-stop:hover {
+  background: #a52a2a;
+}
+
 /* Footer */
 .footer {
   padding: 8px 14px;

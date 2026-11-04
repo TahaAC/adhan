@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Shia Azan — Prayer Times",
   "short_name": "Shia Azan",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Shia prayer times (Tehran/Jafari method) with countdown, Hijri date, and Qibla direction. Click the icon for instant prayer times.",
   "default_locale": "en",
   "icons": {
@@ -25,7 +25,8 @@
     "geolocation",
     "storage",
     "notifications",
-    "alarms"
+    "alarms",
+    "offscreen"
   ],
   "host_permissions": [
     "https://praytimes.org/*",
