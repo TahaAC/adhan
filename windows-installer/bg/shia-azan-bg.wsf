@@ -314,6 +314,29 @@
             lastDay = day;
             log("Settings reloaded. method=" + s.method + " city=" + s.city +
                 " lat=" + s.lat + " lng=" + s.lng);
+            // Log today's full schedule so the user can verify times in bg.log
+            if (s.lat !== 0 || s.lng !== 0) {
+              var schedTimes = computeTimesForToday(s);
+              var prayerNames = ["fajr","sunrise","dhuhr","asr","maghrib","isha","midnight"];
+              var schedLine = "";
+              for (var si = 0; si < prayerNames.length; si++) {
+                var pn = prayerNames[si];
+                var pv = schedTimes[pn];
+                if (!pv) continue;
+                var pd = new Date(pv);
+                var ph = pd.getHours(), pm = pd.getMinutes();
+                schedLine += pn + "=" + (ph<10?"0":"") + ph + ":" + (pm<10?"0":"") + pm +
+                             (isPrayerEnabled(s, pn) ? "" : "(off)") + " ";
+              }
+              log("Today's schedule: " + schedLine);
+              var np0 = nextPrayer(s, now.getTime());
+              if (np0) {
+                var npDate = new Date(np0.time);
+                log("Next adhan: " + np0.prayer + " at " +
+                    (npDate.getHours()<10?"0":"") + npDate.getHours() + ":" +
+                    (npDate.getMinutes()<10?"0":"") + npDate.getMinutes());
+              }
+            }
           }
 
           if (s.lat === 0 && s.lng === 0) {

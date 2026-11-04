@@ -36,10 +36,18 @@
   .save { background: #4caf50; color: white; }
   .save:hover { background: #66bb6a; }
   .cancel { background: #37474f; color: white; }
+  .test { background: #1976d2; color: white; }
+  .test:hover { background: #2196f3; }
+  .schedule { margin-top: 16px; padding: 12px; background: #0a2418; border: 1px solid #1b5e20; border-radius: 4px; font-size: 13px; }
+  .schedule .next { color: #66bb6a; font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .schedule .times { color: #a5d6a7; line-height: 1.6; }
+  .schedule .time-row { display: flex; justify-content: space-between; }
+  .schedule .time-row.disabled { color: #558b2f; text-decoration: line-through; }
   .status { margin-top: 12px; padding: 8px 12px; border-radius: 4px; font-size: 13px; display: none; }
   .status.ok { background: #1b5e20; color: #a5d6a7; display: block; }
   .status.err { background: #b71c1c; color: #ffcdd2; display: block; }
 </style>
+<script language="JScript" src="praytime-jscript.js"></script>
 <script language="JScript">
   var SHELL = new ActiveXObject("WScript.Shell");
   var FSO = new ActiveXObject("Scripting.FileSystemObject");
@@ -220,6 +228,10 @@
     } else {
       document.getElementById('curLoc').innerText = 'Current: auto-detect via IP';
     }
+
+    // Start the live schedule display
+    updateSchedule();
+    startTick();
   }
 
   function onVol() {
@@ -251,6 +263,7 @@
     try {
       writeText(SETTINGS_FILE, stringifyJSON(s));
       showStatus('Settings saved. The background runner will pick them up within 30 seconds.', 'ok');
+      updateSchedule();
     } catch (e) {
       showStatus('Save failed: ' + e.message, 'err');
     }
@@ -262,7 +275,117 @@
     el.className = 'status ' + cls;
   }
 
-  function closeWin() { window.close(); }
+  // ---------- Test Adhan ----------
+  function testAdhan() {
+    var s = loadSettings();
+    if (s.lat === 0 && s.lng === 0) {
+      showStatus('Please pick a city first, then Save.', 'err');
+      return;
+    }
+    showStatus('Playing test adhan...', 'ok');
+    var LOCALAPPDATA = SHELL.ExpandEnvironmentStrings("%LOCALAPPDATA%");
+    var psPath = LOCALAPPDATA + "\\ShiaAzan\\bg\\notify-and-play.ps1";
+    if (!FSO.FileExists(psPath)) {
+      showStatus('notify-and-play.ps1 not found at ' + psPath, 'err');
+      return;
+    }
+    var url = "https://praytimes.org/audio/shia/" + s.reciterId + ".mp3";
+    var volPct = Math.round(Math.max(0, Math.min(1, s.volume)) * 100);
+    // Run PowerShell hidden, but DON'T wait (false) so the HTA stays responsive
+    var cmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden '
+            + '-File "' + psPath + '" '
+            + '-Prayer "Test" '
+            + '-ReciterUrl "' + url + '" '
+            + '-Volume ' + volPct;
+    try {
+      SHELL.Run(cmd, 0, false);
+    } catch (e) {
+      showStatus('Test failed: ' + e.message, 'err');
+    }
+  }
+
+  // ---------- Today's schedule ----------
+  function fmtTime(epochMs) {
+    var d = new Date(epochMs);
+    var h = d.getHours();
+    var m = d.getMinutes();
+    var ap = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    return h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ap;
+  }
+
+  function fmtCountdown(ms) {
+    if (ms < 0) return 'now';
+    var s = Math.floor(ms / 1000);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    if (h > 0) return h + 'h ' + m + 'm';
+    if (m > 0) return m + 'm ' + sec + 's';
+    return sec + 's';
+  }
+
+  function updateSchedule() {
+    var s = loadSettings();
+    var nextEl = document.getElementById('nextPrayer');
+    var timesEl = document.getElementById('prayerTimes');
+
+    if (s.lat === 0 && s.lng === 0) {
+      nextEl.innerText = 'No city set — pick one above and Save.';
+      timesEl.innerHTML = '';
+      return;
+    }
+
+    // Compute today's prayer times using the bundled PrayTime port
+    var pt = new PrayTime(s.method);
+    pt.location([s.lat, s.lng]);
+    pt.format('X');
+    pt.set({ asr: s.asr });
+    var t = pt.getTimes(0); // 0 = today
+
+    var prayerNames = ['fajr','sunrise','dhuhr','asr','maghrib','isha','midnight'];
+    var now = new Date().getTime();
+    var nextPrayer = null, nextTime = Infinity;
+
+    var html = '';
+    for (var i = 0; i < prayerNames.length; i++) {
+      var k = prayerNames[i];
+      var v = parseInt(t[k], 10) * 1000;
+      if (!v) continue;
+      var enabled = s.prayerEnabled[k] === true && s.adhanEnabled;
+      var cls = enabled ? '' : ' disabled';
+      var label = k.charAt(0).toUpperCase() + k.slice(1);
+      html += '<div class="time-row' + cls + '"><span>' + label + '</span><span>' + fmtTime(v) + (enabled ? '' : ' (off)') + '</span></div>';
+      if (enabled && v > now && v < nextTime) {
+        nextTime = v;
+        nextPrayer = k;
+      }
+    }
+    timesEl.innerHTML = html;
+
+    if (nextPrayer) {
+      var ms = nextTime - now;
+      nextEl.innerText = 'Next: ' + nextPrayer.charAt(0).toUpperCase() + nextPrayer.slice(1)
+                       + ' in ' + fmtCountdown(ms)
+                       + ' (' + fmtTime(nextTime) + ')';
+    } else {
+      nextEl.innerText = 'No more prayers today (check enabled prayers above).';
+    }
+  }
+
+  // Refresh the countdown every second
+  function tick() { updateSchedule(); }
+  var tickInterval = null;
+
+  function startTick() {
+    if (tickInterval) clearInterval(tickInterval);
+    tickInterval = setInterval(tick, 1000);
+  }
+
+  function closeWin() {
+    if (tickInterval) clearInterval(tickInterval);
+    window.close();
+  }
 </script>
 </head>
 <body onload="onload()">
@@ -305,8 +428,15 @@
     <div class="prayer"><input type="checkbox" id="p_midnight"><label for="p_midnight">Midnight</label></div>
   </div>
 
+  <h2>Today's schedule</h2>
+  <div class="schedule" id="schedule">
+    <div class="next" id="nextPrayer">Loading...</div>
+    <div class="times" id="prayerTimes"></div>
+  </div>
+
   <div class="buttons">
     <button class="cancel" onclick="closeWin()">Cancel</button>
+    <button class="test" onclick="testAdhan()">Test Adhan</button>
     <button class="save" onclick="save()">Save</button>
   </div>
 
