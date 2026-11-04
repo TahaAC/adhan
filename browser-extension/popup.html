@@ -79,9 +79,12 @@
       </div>
     </div>
 
-    <!-- Settings panel (hidden by default) -->
+    <!-- Settings overlay (covers the whole popup when open) -->
     <div class="settings-panel" id="settings-panel" style="display:none">
-      <h3 class="settings-title">Settings</h3>
+      <div class="settings-header">
+        <button id="settings-close" class="settings-back" title="Close settings (Esc)">&#8249; Back</button>
+        <h3 class="settings-title">Settings</h3>
+      </div>
       <label class="setting-row">
         <span>Calculation Method</span>
         <select id="method-select"></select>
@@ -120,7 +123,7 @@
         </div>
       </div>
       <div class="settings-actions">
-        <button id="open-full-app" class="btn-primary">Open Full App →</button>
+        <button id="open-full-app" class="btn-primary">Open Full App &rarr;</button>
       </div>
     </div>
 

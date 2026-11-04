@@ -160,14 +160,22 @@ function fillSettingsUI() {
     chrome.runtime.sendMessage({ type: 'STOP_ADHAN' });
   });
 
+  // Settings open as a full-popup overlay (position:fixed), so all
+  // options are visible immediately — no scrolling needed to reach them.
   document.getElementById('settings-btn').addEventListener('click', () => {
     const panel = document.getElementById('settings-panel');
-    const opening = panel.style.display === 'none' || !panel.style.display;
-    panel.style.display = opening ? 'block' : 'none';
-    if (opening) {
-      // The panel sits below the schedule, which already fills the
-      // 600px popup — bring it into view so users see the options.
-      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    panel.style.display = 'block';
+    panel.scrollTop = 0;
+  });
+
+  document.getElementById('settings-close').addEventListener('click', () => {
+    document.getElementById('settings-panel').style.display = 'none';
+  });
+
+  // Escape closes the settings overlay.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('settings-panel').style.display = 'none';
     }
   });
 

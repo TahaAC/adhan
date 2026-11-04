@@ -31,13 +31,14 @@ body {
 }
 
 /* Sections keep their natural height so the whole popup scrolls
-   as one column (prevents flex-shrink from clipping content). */
+   as one column (prevents flex-shrink from clipping content). The
+   settings overlay is position:fixed, so it must NOT be flex-shrunk
+   or squeezed by the column layout. */
 .header,
 .location-bar,
 .hero,
 .schedule,
 .qibla-mini,
-.settings-panel,
 .footer {
   flex-shrink: 0;
 }
@@ -346,18 +347,65 @@ body {
   margin-top: 2px;
 }
 
-/* Settings panel */
+/* Settings — full-popup overlay with its own scrolling.
+   position:fixed + inset:0 is viewport-relative, so it always covers
+   exactly the visible popup area regardless of how Chrome sizes the
+   popup window. No reliance on the popup itself scrolling. */
 .settings-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 14px;
   background: #f5f0e0;
   color: #1a3a2e;
-  border-top: 2px solid #d4a017;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(11, 61, 46, 0.45) transparent;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-back {
+  background: none;
+  border: none;
+  color: #0b3d2e;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px 4px 4px;
+  border-radius: 4px;
+}
+
+.settings-back:hover {
+  background: rgba(11, 61, 46, 0.08);
 }
 
 .settings-title {
   font-size: 13px;
   font-weight: 700;
-  margin-bottom: 10px;
+  margin-bottom: 0;
+}
+
+.settings-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-panel::-webkit-scrollbar-thumb {
+  background: rgba(11, 61, 46, 0.45);
+  border-radius: 4px;
+}
+
+.settings-panel::-webkit-scrollbar-track {
+  background: rgba(11, 61, 46, 0.08);
 }
 
 .setting-row {
