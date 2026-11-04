@@ -162,7 +162,13 @@ function fillSettingsUI() {
 
   document.getElementById('settings-btn').addEventListener('click', () => {
     const panel = document.getElementById('settings-panel');
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    const opening = panel.style.display === 'none' || !panel.style.display;
+    panel.style.display = opening ? 'block' : 'none';
+    if (opening) {
+      // The panel sits below the schedule, which already fills the
+      // 600px popup — bring it into view so users see the options.
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   });
 
   document.getElementById('open-full-app').addEventListener('click', () => {

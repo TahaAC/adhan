@@ -6,8 +6,14 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 600px; /* Chrome caps extension popups at 600px */
+}
+
 body {
   width: 360px;
+  height: 100%;
+  overflow: hidden; /* #app is the only scroll container */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: #0b3d2e;
   color: #f5f0e0;
@@ -17,9 +23,23 @@ body {
 #app {
   display: flex;
   flex-direction: column;
-  min-height: 480px;
-  max-height: 600px;
+  height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 160, 23, 0.55) transparent;
+}
+
+/* Sections keep their natural height so the whole popup scrolls
+   as one column (prevents flex-shrink from clipping content). */
+.header,
+.location-bar,
+.hero,
+.schedule,
+.qibla-mini,
+.settings-panel,
+.footer {
+  flex-shrink: 0;
 }
 
 /* Header */
@@ -437,6 +457,7 @@ body {
 
 /* Footer */
 .footer {
+  margin-top: auto; /* pin to bottom when content is short */
   padding: 8px 14px;
   background: #0b3d2e;
   border-top: 1px solid rgba(212, 160, 23, 0.15);
@@ -454,16 +475,20 @@ body {
   color: #d4a017;
 }
 
-/* Scrollbar */
+/* Scrollbar — kept clearly visible so users know they can scroll */
 #app::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 #app::-webkit-scrollbar-thumb {
-  background: rgba(212, 160, 23, 0.3);
-  border-radius: 3px;
+  background: rgba(212, 160, 23, 0.55);
+  border-radius: 4px;
+}
+
+#app::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 160, 23, 0.85);
 }
 
 #app::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.2);
 }
