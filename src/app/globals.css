@@ -172,7 +172,11 @@
   font-family: var(--font-kufi), "Reem Kufi", sans-serif;
 }
 
-/* Custom scrollbar for the schedule list on desktop. */
+/* Custom scrollbar for the schedule list + settings panel on desktop. */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--primary) 40%, transparent) transparent;
+}
 .thin-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;

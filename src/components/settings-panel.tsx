@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Search,
   LocateFixed,
@@ -171,7 +170,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="thin-scrollbar flex-1">
+        <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="space-y-6 px-5 py-5">
             {/* LOCATION */}
             <section className="space-y-3">
@@ -540,7 +539,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
               />
             </section>
           </div>
-        </ScrollArea>
+        </div>
 
         <SheetFooter className="border-t border-border px-5 py-3">
           <Button
