@@ -83,6 +83,11 @@ async function checkAndNotify() {
         ? `It's time for ${slot.label} (${slot.time}). Allahu Akbar.`
         : `${slot.label} at ${slot.time}.`;
 
+      // Respect the per-prayer toggle. Default to ON if the user hasn't
+      // configured it (so the extension still works on first install).
+      const prayerOn = settings.prayersEnabled?.[slot.key] !== false;
+      if (!prayerOn) continue;
+
       chrome.notifications.create(key, {
         type: 'basic',
         iconUrl: 'icons/icon128.png',
@@ -101,11 +106,17 @@ async function checkAndNotify() {
   }
 
   // Update the badge with the next prayer countdown.
-  updateBadge(all, now);
+  updateBadge(all, now, settings);
 }
 
-function updateBadge(all, now) {
-  const next = all.find((s) => s.timestamp > now);
+function updateBadge(all, now, settings) {
+  // Skip prayers the user has disabled — the badge should count down
+  // to the next prayer they'll actually hear.
+  const enabled = all.filter((s) => {
+    const on = settings?.prayersEnabled?.[s.key] !== false;
+    return on;
+  });
+  const next = enabled.find((s) => s.timestamp > now);
   if (!next) {
     chrome.action.setBadgeText({ text: '' });
     return;

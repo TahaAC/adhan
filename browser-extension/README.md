@@ -18,10 +18,11 @@ A Chrome/Edge/Firefox browser extension that shows Shia prayer times (Tehran/Jaf
 
 When a prayer time arrives, the extension shows a desktop notification **and** starts playing the adhan immediately — no click needed, even if the popup is closed and the browser is in the background.
 
-- The adhan plays for the five salat times (Fajr, Dhuhr, Asr, Maghrib, Isha). Sunrise and Midnight are notification-only.
+- The adhan plays only for the prayers you enable in **Settings → Prayer times** (Fajr, Dhuhr, Asr, Maghrib, Isha default on; Sunrise and Midnight default off).
 - Audio is streamed from praytimes.org using your selected reciter.
 - Playback uses a hidden offscreen document (`offscreen.html`), the standard Manifest V3 way to play audio from a background service worker. It needs no user gesture, so it works in the background.
-- Toggle it with **“Play adhan sound at prayer time”** in settings, and set the volume with the slider.
+- The toolbar badge counts down to the **next enabled prayer**, skipping any you've disabled.
+- Toggle the sound with **"Play adhan sound at prayer time"**, set the volume with the slider.
 - Use **▶ Test** in settings to hear exactly how the adhan will sound at prayer time (it runs the same background path), and **■ Stop** to end it.
 
 > **Tip:** For reliable background audio, keep the browser running. The adhan cannot play if the browser itself is fully closed.
@@ -86,6 +87,7 @@ Click the gear icon in the popup header to open settings:
 - **Adhan Reciter** — 12 Shia reciters (used for the background adhan)
 - **Desktop notifications** — toggle prayer-time notifications
 - **Play adhan sound at prayer time** — toggle the background adhan voice
+- **Prayer times** — per-prayer toggles (Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha, Midnight). The adhan/notification fires only for the prayers you enable. The five daily salat default on; Sunrise and Midnight default off.
 - **Adhan volume** — 0–100% slider for the background adhan
 - **Test background adhan** — ▶ Test / ■ Stop buttons
 

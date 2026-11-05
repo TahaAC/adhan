@@ -45,6 +45,8 @@ const PRAYER_META = {
 
 const KAABA = { lat: 21.4225, lng: 39.8262 };
 
+const PRAYER_KEYS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha', 'midnight'];
+
 const DEFAULT_SETTINGS = {
   method: 'Tehran',
   timeFormat: '12h',
@@ -52,6 +54,18 @@ const DEFAULT_SETTINGS = {
   notificationsEnabled: true,
   soundEnabled: true,
   volume: 90,
+  // Per-prayer enable. The five daily salat default on; sunrise and
+  // midnight (which only fire a notification, not the adhan) default
+  // off — most users don't want a 5am sunrise ping.
+  prayersEnabled: {
+    fajr: true,
+    sunrise: false,
+    dhuhr: true,
+    asr: true,
+    maghrib: true,
+    isha: true,
+    midnight: false,
+  },
   location: null,
 };
 
@@ -140,6 +154,51 @@ function fillSettingsUI() {
     settings.soundEnabled = e.target.checked;
     await saveSettings();
   });
+
+  // Per-prayer toggles: build a row for each of the 7 daily markers.
+  // Each toggle controls whether the adhan/notification fires for that
+  // prayer. Toggling persists immediately.
+  const prayerList = document.getElementById('prayer-toggle-list');
+  if (prayerList) {
+    prayerList.innerHTML = '';
+    PRAYER_KEYS.forEach((k) => {
+      const meta = PRAYER_META[k];
+      const on = settings.prayersEnabled?.[k] !== false;
+
+      const row = document.createElement('label');
+      row.className = 'prayer-toggle-row' + (on ? ' on' : '');
+
+      const info = document.createElement('div');
+      info.className = 'prayer-toggle-info';
+      info.innerHTML =
+        '<span class="prayer-toggle-name">' + meta.label + '</span>' +
+        '<span class="prayer-toggle-ar">' + meta.arabic + '</span>' +
+        '<span class="prayer-toggle-tag">' + (meta.isSalat ? 'Adhan' : 'Reminder') + '</span>';
+
+      const control = document.createElement('label');
+      control.className = 'switch';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = on;
+      cb.addEventListener('change', async (e) => {
+        if (!settings.prayersEnabled) settings.prayersEnabled = {};
+        settings.prayersEnabled[k] = e.target.checked;
+        await saveSettings();
+        row.classList.toggle('on', e.target.checked);
+      });
+
+      const slider = document.createElement('span');
+      slider.className = 'switch-track';
+
+      control.appendChild(cb);
+      control.appendChild(slider);
+
+      row.appendChild(info);
+      row.appendChild(control);
+      prayerList.appendChild(row);
+    });
+  }
 
   const volumeRange = document.getElementById('volume-range');
   const volumeValue = document.getElementById('volume-value');
