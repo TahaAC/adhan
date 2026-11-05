@@ -91,18 +91,18 @@ batch script:
 
 ---
 
-## 2. Browser Extension (Chrome / Edge / Brave / Firefox)
+## 2. Browser Extension (All Browsers — Chrome / Edge / Brave / Opera / Vivaldi / Arc / Firefox / Safari)
 
 **File:** `shia-azan-extension.zip`
 
-A compact browser extension that shows prayer times in a popup when you
+A cross-browser extension that shows prayer times in a popup when you
 click the toolbar icon. Includes live countdown, today's schedule, Qibla
-direction, desktop notifications, and — at each of the five prayer
+direction, desktop notifications, and — at each of the selected prayer
 times — the **adhan voice plays automatically in the background**,
-together with the notification (toggleable, with volume control and a
-Test button in the extension's settings).
+together with the notification (toggleable, with per-prayer selection,
+volume control, and a Test button in the extension's settings).
 
-### Installation (Chrome / Edge / Brave)
+### Installation (Chrome / Edge / Brave / Opera / Vivaldi / Arc)
 
 1. **Download and unzip** `shia-azan-extension.zip` to a folder on your
    computer (e.g. `C:\ShiaAzanExtension\` on Windows or
@@ -123,6 +123,23 @@ Test button in the extension's settings).
 
 The extension icon (a gold crescent on emerald background) will appear in
 your toolbar. Click it anytime to see prayer times for your location.
+
+### Installation (Firefox)
+
+1. Go to `about:debugging#/runtime/this-firefox`
+2. Click **"Load Temporary Add-on"**
+3. Select the `manifest.json` file in the unzipped folder
+
+The extension runs immediately with full background adhan support.
+
+### Installation (Safari — macOS 13+)
+
+Safari supports the same Web Extension format but needs an Xcode wrapper:
+
+1. Open **Terminal** and run:
+   `xcrun safari-web-extension-converter /path/to/browser-extension`
+2. Xcode opens with a generated macOS app project — press **Cmd+R** to build.
+3. In Safari → **Settings → Extensions**, enable **Shia Azan**.
 
 ### Keyboard Shortcut
 

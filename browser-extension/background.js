@@ -142,11 +142,28 @@ function getTomorrow() {
   return d;
 }
 
-// ---------- Background adhan audio (offscreen document) ----------
+// ---------- Background adhan audio (cross-browser) ----------
 //
-// MV3 service workers have no DOM, so audio is played by a hidden
-// offscreen document created with reason AUDIO_PLAYBACK — which is
-// exempt from autoplay restrictions (no user gesture needed).
+// Two playback paths, selected at runtime:
+//
+//  1. Chromium (Chrome / Edge / Brave / Opera / Vivaldi / Arc):
+//     MV3 service workers have no DOM, so audio is played by a hidden
+//     offscreen document created with reason AUDIO_PLAYBACK — which is
+//     exempt from autoplay restrictions (no user gesture needed).
+//
+//  2. Firefox & Safari: their MV3 background pages are persistent DOM
+//     pages (Firefox uses background.scripts; Safari converts via Xcode
+//     and also runs a persistent page). We can play audio directly with
+//     `new Audio()` — no offscreen document needed or available.
+
+const HAS_OFFSCREEN =
+  typeof chrome !== 'undefined' &&
+  !!chrome.offscreen &&
+  typeof chrome.offscreen.createDocument === 'function';
+
+// Direct-audio path (Firefox / Safari). One element reused across
+// prayers so the browser caches the reciter file.
+let bgAudioEl = null;
 
 async function ensureOffscreenDocument() {
   // Chrome 116+: query live contexts. Older Chrome: fall back to
@@ -177,29 +194,68 @@ async function ensureOffscreenDocument() {
 }
 
 function closeOffscreenDocument() {
-  chrome.offscreen.closeDocument().catch(() => {});
+  if (HAS_OFFSCREEN) chrome.offscreen.closeDocument().catch(() => {});
+}
+
+// Firefox / Safari path: play directly in the background page.
+function playAudioDirect(url, volume) {
+  try {
+    if (!bgAudioEl) {
+      bgAudioEl = new Audio();
+      bgAudioEl.crossOrigin = 'anonymous';
+    }
+    bgAudioEl.src = url;
+    bgAudioEl.volume = volume;
+    bgAudioEl.loop = false;
+    const p = bgAudioEl.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch((e) => {
+        console.warn('direct adhan playback blocked:', e);
+      });
+    }
+  } catch (e) {
+    console.warn('direct adhan audio failed:', e);
+  }
+}
+
+function stopAudioDirect() {
+  if (bgAudioEl) {
+    try { bgAudioEl.pause(); } catch (e) {}
+    try { bgAudioEl.currentTime = 0; } catch (e) {}
+  }
 }
 
 async function playAdhanAudio(reciterId, volume) {
   try {
     const url = RECITER_BASE + (reciterId || 'Moazzen-Zadeh') + '.mp3';
     const vol = typeof volume === 'number' ? Math.max(0, Math.min(100, volume)) / 100 : 1;
-    await ensureOffscreenDocument();
-    await chrome.runtime.sendMessage({
-      type: 'PLAY_ADHAN',
-      url,
-      volume: vol,
-    });
+
+    if (HAS_OFFSCREEN) {
+      // Chromium path
+      await ensureOffscreenDocument();
+      await chrome.runtime.sendMessage({
+        type: 'PLAY_ADHAN',
+        url,
+        volume: vol,
+      });
+    } else {
+      // Firefox / Safari path
+      playAudioDirect(url, vol);
+    }
   } catch (e) {
     console.warn('background adhan failed:', e);
   }
 }
 
 function stopAdhanAudio() {
-  chrome.runtime
-    .sendMessage({ type: 'STOP_ADHAN' })
-    .catch(() => {}) // offscreen document not open
-    .finally(() => closeOffscreenDocument());
+  if (HAS_OFFSCREEN) {
+    chrome.runtime
+      .sendMessage({ type: 'STOP_ADHAN' })
+      .catch(() => {}) // offscreen document not open
+      .finally(() => closeOffscreenDocument());
+  } else {
+    stopAudioDirect();
+  }
 }
 
 function computeSchedule(date, settings) {
@@ -237,11 +293,15 @@ function computeSchedule(date, settings) {
   });
 }
 
-// Import the PrayTime library in the service worker context.
-// chrome.service workers can use importScripts.
+// Load the PrayTime library.
+// - Chromium (service worker): uses importScripts().
+// - Firefox / Safari (background.scripts): praytime.js is listed BEFORE
+//   background.js in manifest.background.scripts, so PrayTime is already
+//   defined globally by the time this runs — the try/catch below is a
+//   no-op there.
 try {
   importScripts('praytime.js');
 } catch {
-  // In MV3, importScripts works only in the service worker entry.
-  // If it fails, computeSchedule will return [] gracefully.
+  // Expected on Firefox/Safari (no importScripts in background pages).
+  // PrayTime is loaded via the manifest's background.scripts array.
 }
