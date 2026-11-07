@@ -2,18 +2,22 @@
 //
 // Responsibilities:
 // 1. Cache the app shell and adhan audio for offline use.
-// 2. Receive the prayer schedule from the page and schedule exact
-//    timeouts for each upcoming prayer.
-// 3. When a prayer time fires:
+// 2. Compute prayer times ITSELF using the bundled PrayTime library
+//    (so the SW can re-schedule even if the page is closed and the SW
+//    was killed + restarted by the browser).
+// 3. Persist settings in IndexedDB so they survive SW restarts.
+// 4. When a prayer time fires:
 //    a. Show a Windows toast notification (auto-dismisses after ~5s).
 //    b. Try to play the adhan in an open client window via postMessage.
 //    c. If no client is open, open the app window (which plays audio on
 //       load) — this works after the user has installed the PWA.
-// 4. Handle notification clicks to focus/open the app.
-// 5. Periodic background sync re-schedules prayer times if the SW was
-//    killed and restarted by the browser.
+// 5. Handle notification clicks to focus/open the app.
+// 6. Periodic background sync re-computes and re-schedules prayer times
+//    if the SW was killed and restarted by the browser.
 
-const CACHE_VERSION = 'shia-azan-v2';
+importScripts('/praytime.js');
+
+const CACHE_VERSION = 'shia-azan-v3';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const AUDIO_CACHE = `${CACHE_VERSION}-audio`;
 
@@ -28,26 +32,75 @@ const APP_SHELL_ASSETS = [
   '/favicon-32.png',
 ];
 
+// ----- IndexedDB for settings persistence -----
+const DB_NAME = 'shia-azan-sw';
+const DB_VERSION = 1;
+const STORE_SETTINGS = 'settings';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_SETTINGS)) {
+        db.createObjectStore(STORE_SETTINGS);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGet(key) {
+  try {
+    const db = await openDB();
+    return await new Promise((resolve) => {
+      const tx = db.transaction(STORE_SETTINGS, 'readonly');
+      const req = tx.objectStore(STORE_SETTINGS).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function idbSet(key, value) {
+  try {
+    const db = await openDB();
+    return await new Promise((resolve) => {
+      const tx = db.transaction(STORE_SETTINGS, 'readwrite');
+      tx.objectStore(STORE_SETTINGS).put(value, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch {
+    return false;
+  }
+}
+
 // ----- Scheduled timeouts -----
-// We keep track of pending timeouts so we can clear and re-schedule when
-// the page sends an updated schedule. The browser may kill an idle SW
-// after ~30s, but active `setTimeout` callbacks keep it alive.
 const scheduledTimeouts = new Set();
-const scheduledPrayers = new Map(); // key -> prayer slot
+const scheduledPrayers = new Map();
 
 self.addEventListener('message', (event) => {
   const data = event.data;
   if (!data) return;
 
   if (data.type === 'SCHEDULE_PRAYERS') {
+    // Page sent a fresh schedule + settings. Persist settings so the
+    // SW can recompute on its own next time it restarts.
+    if (data.settings) {
+      idbSet('settings', data.settings).catch(() => {});
+    }
     schedulePrayers(data.prayers || [], data.settings || {});
   } else if (data.type === 'TEST_NOTIFICATION') {
     fireTestNotification(data.settings || {});
   } else if (data.type === 'KEEP_ALIVE') {
-    // The page sends this every 20s to keep the SW alive so the
-    // scheduled timeouts don't get garbage-collected. We just respond
-    // so the page knows the SW is still active.
     event.source?.postMessage({ type: 'KEEP_ALIVE_ACK' });
+  } else if (data.type === 'PING') {
+    // Lightweight presence check from the page.
+    event.source?.postMessage({ type: 'PONG' });
   }
 });
 
@@ -56,13 +109,12 @@ self.addEventListener('message', (event) => {
  * Clears any previously scheduled timeouts first.
  */
 function schedulePrayers(prayers, settings) {
-  // Clear existing
   for (const id of scheduledTimeouts) clearTimeout(id);
   scheduledTimeouts.clear();
   scheduledPrayers.clear();
 
   const now = Date.now();
-  const horizon = 24 * 60 * 60 * 1000; // schedule up to 24h ahead
+  const horizon = 24 * 60 * 60 * 1000;
 
   for (const prayer of prayers) {
     if (!prayer.timestamp) continue;
@@ -82,6 +134,71 @@ function schedulePrayers(prayers, settings) {
 }
 
 /**
+ * Compute prayer times IN THE SW using the bundled PrayTime library,
+ * then schedule timeouts. Used when the page is closed and the SW
+ * wakes up via periodic sync or activate event.
+ */
+async function computeAndScheduleFromStoredSettings() {
+  const settings = await idbGet('settings');
+  if (!settings || !settings.location) return;
+
+  try {
+    const pt = new PrayTime(settings.method || 'Tehran');
+    pt.location([settings.location.lat, settings.location.lng]);
+    pt.timezone(
+      settings.location.timezone ||
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+    );
+    pt.adjust({
+      asr: settings.asrMethod || 'Standard',
+      highLats: settings.highLats || 'NightMiddle',
+    });
+    pt.format('24h');
+
+    const offsetMin = settings.azanOffsetMin || 0;
+    const offsetMs = offsetMin * 60 * 1000;
+    const now = Date.now();
+
+    // Build today's + tomorrow's prayer slots, filtered by per-prayer
+    // enabled setting. The page sends pre-filtered lists, but the SW
+    // computes its own and must filter itself.
+    const PRAYER_KEYS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha', 'midnight'];
+    const allSlots = [];
+
+    for (const dayOffset of [0, 1]) {
+      const date = new Date();
+      date.setDate(date.getDate() + dayOffset);
+      const times = pt.times(date);
+      for (const k of PRAYER_KEYS) {
+        const enabled = settings.azanEnabled?.[k] !== false;
+        if (!enabled) continue;
+        const value = times[k];
+        if (typeof value !== 'string' || !/^\d/.test(value)) continue;
+        const m = value.match(/(\d+):(\d+)/);
+        if (!m) continue;
+        const h = parseInt(m[1], 10);
+        const min = parseInt(m[2], 10);
+        const d = new Date(date);
+        d.setHours(h, min, 0, 0);
+        const timestamp = d.getTime() + offsetMs;
+        if (timestamp <= now) continue;
+        allSlots.push({
+          key: k,
+          label: k.charAt(0).toUpperCase() + k.slice(1),
+          time: value,
+          timestamp,
+          isAzan: k !== 'sunrise' && k !== 'midnight',
+        });
+      }
+    }
+
+    schedulePrayers(allSlots, settings);
+  } catch (e) {
+    // PrayTime not loaded yet, or bad settings — silently skip.
+  }
+}
+
+/**
  * Fire a Windows toast notification + trigger audio playback.
  */
 async function firePrayerNotification(prayer, settings) {
@@ -90,10 +207,6 @@ async function firePrayerNotification(prayer, settings) {
     ? `It's time for ${prayer.label} (${prayer.time}). Allahu Akbar.`
     : `${prayer.label} at ${prayer.time}.`;
 
-  // Show the toast notification. On Windows this appears as a banner
-  // in the bottom-right corner for ~5 seconds, then moves to the
-  // Action Center. `requireInteraction: false` (default) means it
-  // auto-dismisses.
   try {
     await self.registration.showNotification(title, {
       body,
@@ -109,15 +222,12 @@ async function firePrayerNotification(prayer, settings) {
     // Notification permission may have been revoked.
   }
 
-  // Try to play audio in an existing client window.
   const allClients = await self.clients.matchAll({
     type: 'window',
     includeUncontrolled: true,
   });
 
   if (allClients.length > 0) {
-    // Send to the first available client. The page will play the adhan
-    // and show the overlay.
     for (const client of allClients) {
       client.postMessage({
         type: 'PLAY_ADHAN',
@@ -126,24 +236,17 @@ async function firePrayerNotification(prayer, settings) {
       });
     }
   } else if (settings.notificationsEnabled !== false) {
-    // No client open. Open the app in a new window — the app will
-    // detect on load that it should play the adhan for this prayer.
-    // This works reliably after the PWA is installed.
     try {
       await self.clients.openWindow(
         `/?playAdhan=${prayer.key}&time=${prayer.time}`,
       );
     } catch {
       // openWindow requires the SW to have been triggered by a
-      // notification click or user gesture in some browsers. If it
-      // fails, the notification alone still serves as the alert.
+      // notification click or user gesture in some browsers.
     }
   }
 }
 
-/**
- * Fire a test notification (used by the "Test notification" button).
- */
 async function fireTestNotification(settings) {
   try {
     await self.registration.showNotification('Shia Azan — Test', {
@@ -182,20 +285,13 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ----- Periodic Background Sync: re-schedule when SW restarts -----
+// This is the key to "app closed" background adhan: the browser wakes
+// the SW every ~12h (Chrome/Edge, controlled by the browser based on
+// site engagement). When it fires, we recompute the prayer schedule
+// from stored settings and re-arm the timeouts.
 self.addEventListener('periodicsync', (event) => {
   if (event.tag === 'reshedule-prayers') {
-    event.waitUntil(
-      (async () => {
-        // Ask any open client to re-send the prayer schedule.
-        const allClients = await self.clients.matchAll({
-          type: 'window',
-          includeUncontrolled: true,
-        });
-        for (const client of allClients) {
-          client.postMessage({ type: 'RESEND_SCHEDULE' });
-        }
-      })(),
-    );
+    event.waitUntil(computeAndScheduleFromStoredSettings());
   }
 });
 
@@ -218,7 +314,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// ----- Activate: clean up old caches -----
+// ----- Activate: clean up old caches + re-schedule from stored settings -----
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
@@ -234,6 +330,9 @@ self.addEventListener('activate', (event) => {
           .map((key) => caches.delete(key)),
       );
       await self.clients.claim();
+      // Re-schedule from stored settings — covers the case where the
+      // SW was killed and the page is closed.
+      await computeAndScheduleFromStoredSettings();
     })(),
   );
 });

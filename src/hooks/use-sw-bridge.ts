@@ -47,6 +47,12 @@ export function useSwBridge(
   const reciterId = useSettings((s) => s.reciterId);
   const azanVolume = useSettings((s) => s.azanVolume);
   const notificationsEnabled = useSettings((s) => s.notificationsEnabled);
+  const method = useSettings((s) => s.method);
+  const asrMethod = useSettings((s) => s.asrMethod);
+  const highLats = useSettings((s) => s.highLats);
+  const azanEnabled = useSettings((s) => s.azanEnabled);
+  const azanOffsetMin = useSettings((s) => s.azanOffsetMin);
+  const location = useSettings((s) => s.location);
   const startActiveAzan = useActiveAzan((s) => s.start);
   const stopActiveAzan = useActiveAzan((s) => s.stop);
   const lastScheduleKeyRef = useRef<string>('');
@@ -111,9 +117,24 @@ export function useSwBridge(
         reciterId,
         azanVolume,
         notificationsEnabled,
+        // Full settings so the SW can recompute its own schedule if it
+        // gets killed and restarted while the page is closed.
+        method,
+        asrMethod,
+        highLats,
+        azanEnabled,
+        azanOffsetMin,
+        location: location
+          ? {
+              name: location.name,
+              lat: location.lat,
+              lng: location.lng,
+              timezone: location.timezone,
+            }
+          : null,
       },
     });
-  }, [today, tomorrow, reciterId, azanVolume, notificationsEnabled]);
+  }, [today, tomorrow, reciterId, azanVolume, notificationsEnabled, method, asrMethod, highLats, azanEnabled, azanOffsetMin, location]);
 
   // Listen for messages from the SW.
   useEffect(() => {
@@ -141,7 +162,24 @@ export function useSwBridge(
             navigator.serviceWorker.controller.postMessage({
               type: 'SCHEDULE_PRAYERS',
               prayers: all,
-              settings: { reciterId, azanVolume, notificationsEnabled },
+              settings: {
+                reciterId,
+                azanVolume,
+                notificationsEnabled,
+                method,
+                asrMethod,
+                highLats,
+                azanEnabled,
+                azanOffsetMin,
+                location: location
+                  ? {
+                      name: location.name,
+                      lat: location.lat,
+                      lng: location.lng,
+                      timezone: location.timezone,
+                    }
+                  : null,
+              },
             });
           }
         }
@@ -157,6 +195,12 @@ export function useSwBridge(
     reciterId,
     azanVolume,
     notificationsEnabled,
+    method,
+    asrMethod,
+    highLats,
+    azanEnabled,
+    azanOffsetMin,
+    location,
     handlePlayAdhanFromSW,
   ]);
 
@@ -196,10 +240,27 @@ export function useSwBridge(
     }
     navigator.serviceWorker.controller.postMessage({
       type: 'TEST_NOTIFICATION',
-      settings: { reciterId, azanVolume, notificationsEnabled },
+      settings: {
+        reciterId,
+        azanVolume,
+        notificationsEnabled,
+        method,
+        asrMethod,
+        highLats,
+        azanEnabled,
+        azanOffsetMin,
+        location: location
+          ? {
+              name: location.name,
+              lat: location.lat,
+              lng: location.lng,
+              timezone: location.timezone,
+            }
+          : null,
+      },
     });
     return true;
-  }, [reciterId, azanVolume, notificationsEnabled]);
+  }, [reciterId, azanVolume, notificationsEnabled, method, asrMethod, highLats, azanEnabled, azanOffsetMin, location]);
 
   return { testNotification };
 }
